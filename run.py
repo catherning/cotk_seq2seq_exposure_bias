@@ -6,8 +6,8 @@ def run(*argv):
 
 	from utils import Storage
 
-	parser = argparse.ArgumentParser(description='A seq2seq model with GRU encoder and decoder. Attention, beamsearch,\
-		dropout and batchnorm is supported.')
+	parser = argparse.ArgumentParser(description='A seq2seq model with GRU encoder and decoder with RAML algorithm.\
+		 Attention, beamsearch, dropout and batchnorm is supported.')
 	args = Storage()
 
 	parser.add_argument('--name', type=str, default=None,
@@ -71,6 +71,15 @@ def run(*argv):
 	parser.add_argument('--seed', type=int, default=0,
 		help='Specify random seed. Default: 0')
 
+	# RAML parameters
+	parser.add_argument('--raml_file', type=str, default='data/iwslt14/samples_iwslt14.txt',
+		help='the samples and rewards described in RAML')
+	parser.add_argument('--n_samples', type=int, default=10,
+		help='number of samples for every target sentence')
+	parser.add_argument('--tau', type=float, default=0.4,
+		help='the temperature in RAML algorithm')
+
+
 	cargs = parser.parse_args(argv)
 
 
@@ -108,14 +117,20 @@ def run(*argv):
 	args.droprate = cargs.droprate
 	args.batchnorm = cargs.batchnorm
 
+	# RAML parameters
+	args.raml_file = cargs.raml_file
+	args.n_samples = cargs.n_samples
+	args.tau = cargs.tau
+
 	args.lr = cargs.lr
-	args.batch_size = 64
+	args.batch_size = 64 * args.n_samples
 	args.batch_num_per_gradient = 4
 	args.grad_clip = 5
 	args.show_sample = [0]  # show which batch when evaluating at tensorboard
 	args.max_sent_length = 50
 	args.checkpoint_steps = 20
 	args.checkpoint_max_to_keep = 5
+
 
 	args.seed = cargs.seed
 

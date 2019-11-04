@@ -5,7 +5,7 @@ import torch
 from torch import nn
 
 from utils import zeros, LongTensor,\
-			BaseNetwork, MyGRU, Storage, gumbel_max, flattenSequence, SingleAttnGRU, SequenceBatchNorm
+			BaseNetwork, MyGRU, Storage, gumbel_max, flattenSequence, SingleAttnGRU, SequenceBatchNorm, raml_loss
 
 # pylint: disable=W0221
 class Network(BaseNetwork):
@@ -23,7 +23,9 @@ class Network(BaseNetwork):
 		self.embLayer.forward(incoming)
 		self.postEncoder.forward(incoming)
 		self.connectLayer.forward(incoming)
-		self.genNetwork.forward(incoming)
+		# TODO: def training_rewards
+		training_rewards = None
+		self.genNetwork.forward(incoming, training_rewards)
 
 		incoming.result.loss = incoming.result.word_loss
 
@@ -38,7 +40,7 @@ class Network(BaseNetwork):
 		self.embLayer.forward(incoming)
 		self.postEncoder.forward(incoming)
 		self.connectLayer.forward(incoming)
-		self.genNetwork.detail_forward(incoming)
+		self.genNetwork.detail_forward(incoming, training_rewards)
 
 class EmbeddingLayer(nn.Module):
 	def __init__(self, param):
@@ -144,7 +146,8 @@ class GenNetwork(nn.Module):
 			gen.w_o = new_gen.w_o
 			gen.length = new_gen.length
 
-	def forward(self, incoming):
+	def forward(self, incoming, training_rewards):
+    	# XXX: Should be of size (batch_size) ?
 		inp = Storage()
 		inp.resp_length = incoming.data.resp_length
 		inp.embedding = incoming.resp.embedding
@@ -155,9 +158,13 @@ class GenNetwork(nn.Module):
 		incoming.gen = gen = Storage()
 		self.teacherForcing(inp, gen)
 
+		# TODO: check size of w_o_f and data_f that were input of lossCE, input of raml_loss are different!
 		w_o_f = flattenSequence(gen.w, incoming.data.resp_length-1)
 		data_f = flattenSequence(incoming.data.resp[1:], incoming.data.resp_length-1)
-		incoming.result.word_loss = self.lossCE(w_o_f, data_f)
+
+		# XXX: raml loss
+		# incoming.result.word_loss = self.lossCE(w_o_f, data_f)
+		incoming.result.word_loss = raml_loss(w_o_f, data_f, training_rewards)
 		incoming.result.perplexity = torch.exp(incoming.result.word_loss)
 
 	def detail_forward(self, incoming):
