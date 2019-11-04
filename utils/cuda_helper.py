@@ -28,7 +28,7 @@ def init(device=None, __cuda=False):
 	if __cuda:
 		use_cuda = True
 		device_num = device
-		torch.cuda.set_device(device_num)
+		torch.cuda.set_device(device_num) # TODO: solve cuda issue
 		_cuda = lambda x: x.cuda(device_num)
 		_zeros = gpuzeros
 		_ones = gpuones
