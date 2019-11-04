@@ -9,7 +9,7 @@ import numpy as np
 import tqdm
 
 from utils import Storage, cuda, BaseModel, SummaryHelper, get_mean, storage_to_list, \
-	CheckpointManager, LongTensor
+	CheckpointManager, LongTensor, read_raml_sample_file
 from network import Network
 
 class Seq2seq(BaseModel):
@@ -82,6 +82,10 @@ class Seq2seq(BaseModel):
 
 	def train(self, batch_num):
 		args = self.param.args
+
+		# TODO: check if here for calling data is ok
+		# raml_train_data = read_raml_sample_file(args)
+
 		dm = self.param.volatile.dm
 		datakey = 'train'
 

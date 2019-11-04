@@ -7,7 +7,9 @@ from cotk.dataloader import SingleTurnDialog
 from cotk.wordvector import WordVector, Glove
 
 from utils import debug, try_cache, cuda_init, Storage
-from seq2seq import Seq2seq
+from baselines.cotk_seq2seq_code.seq2seq import Seq2seq
+# TODO: change back to raml
+# from seq2seq_raml import Seq2seq
 
 def main(args, load_exclude_set, restoreCallback):
 	logging.basicConfig(\
@@ -32,6 +34,7 @@ def main(args, load_exclude_set, restoreCallback):
 	wordvec_class = WordVector.load_class(args.wvclass)
 	if wordvec_class is None:
 		wordvec_class = Glove
+		
 	def load_dataset(data_arg, wvpath, embedding_size):
 		wv = wordvec_class(wvpath)
 		dm = data_class(**data_arg)
