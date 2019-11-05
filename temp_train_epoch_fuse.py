@@ -68,7 +68,8 @@ def _train_epoch(self, raml_train_data, epoch_no): # have raml_train_data as glo
     # batch is incoming
     # TODO: change all call of train_data for its info
     # same for batch in feed dict (=> need to change def of model itself where batch is called in raml tf...??)
-
+    # 2 vocab because 2 languages! take that into account when fuse into normal seq2seq
+    
     # XXX: for raml
     source_buffer, target_buffer = [], []
     random.shuffle(raml_train_data)
