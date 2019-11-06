@@ -16,8 +16,7 @@ import json
 from cotk._utils import hooks
 from cotk._utils.file_utils import get_resource_file_path
 from cotk.dataloader import SingleTurnDialog
-from utils import debug, Storage
-
+from utils import debug, Storage, read_raml_sample_file
 
 class IWSLT14(SingleTurnDialog):
     '''A dataloader for IWSLT14 dataset which is a Machine Learning translation dataset
@@ -127,11 +126,16 @@ if __name__ == "__main__":
 
     args = Storage()
 
-    args.dataset = "IWSLT14"
-    args.datapath = "D:\\Documents\\THU\\Cotk\\data\\iwslt14"
+    # args.dataset = "IWSLT14"
+    args.datapath = "D:/Documents/THU/Cotk/data/iwslt14"
 
     args.dataset ='OpenSubtitles'
-    args.datapath ="D:/.cotk_cache/9cf4d4fbf4394c0725c4ad16bf60afd4a40e64c8465bde38d038586118a54888_unzip/opensubtitles/"
+
+    args.raml_file = os.path.join(args.datapath,"samples_iwslt14.txt")
+    args.n_samples = 10
+    data = read_raml_sample_file(args)
+    
+    # args.datapath ="D:/.cotk_cache/9cf4d4fbf4394c0725c4ad16bf60afd4a40e64c8465bde38d038586118a54888_unzip/opensubtitles/"
 
     dm = main(args)
     dm.vocab_size

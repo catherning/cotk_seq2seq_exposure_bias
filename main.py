@@ -32,8 +32,11 @@ def main(args, load_exclude_set, restoreCallback):
 	data_arg = Storage()
 	data_arg.file_id = args.datapath
 	wordvec_class = WordVector.load_class(args.wvclass)
-	if wordvec_class is None:
-		wordvec_class = Glove
+	
+	# XXX: No pretrained vectors. For machine translation with german, wouldn't work ? First try with, if doesn't work, then without
+	# would need to init manually the embed layer in network
+	# if wordvec_class is None:
+	# 	wordvec_class = Glove
 		
 	def load_dataset(data_arg, wvpath, embedding_size):
 		wv = wordvec_class(wvpath)
