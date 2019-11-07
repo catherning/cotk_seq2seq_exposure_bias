@@ -63,13 +63,23 @@ class Seq2seq(BaseModel):
 		return incoming
 
 	def get_next_batch(self, dm, key, restart=True):
-		data = dm.get_next_batch(key)
+		if key=="train":
+			data = dm.get_next_raml_batch(key)
+		else:
+			# normal dataset
+			data = dm.get_next_batch(key)
+
 		if data is None:
+			# XXX: might not work cos for now, 2 dm, if raml, then might always get sth, so data never none ?
 			if restart:
-				dm.restart(key)
+				if key == "train":
+					dm.restart(key, self.args.batch_size//self.args.n_samples) 
+				else:
+					dm.restart(key)
 				return self.get_next_batch(dm, key, False)
 			else:
 				return None
+
 		return self._preprocess_batch(data)
 
 	def get_batches(self, dm, key):
@@ -82,11 +92,12 @@ class Seq2seq(BaseModel):
 			return None
 		return self._preprocess_batch(data)
 
-	# TODO: fuse code
+		# TODO: fuse code
 	def train(self, batch_num):
 		args = self.param.args
 
-		dm = self.param.volatile.dm
+		dm = self.param.volatile.raml_data
+		# dm = self.param.volatile.dm
 		datakey = 'train'
 
 		for i in range(batch_num):
@@ -146,7 +157,7 @@ class Seq2seq(BaseModel):
 		dm = self.param.volatile.dm
 
 		# TODO: check if here for calling data is ok
-		raml_train_data = read_raml_sample_file(args)
+		# raml_train_data = read_raml_sample_file(args)
 
 		while self.now_epoch < args.epochs:
 			self.now_epoch += 1
@@ -154,8 +165,12 @@ class Seq2seq(BaseModel):
 
 			dm.restart('train', args.batch_size)
 			self.net.train()
-			self.train(raml_train_data, args.batch_per_epoch)
+			self.train(args.batch_per_epoch)
 
+			# TODO: for evaluation, also calculates loss (using reward!)
+			# => either keep other def of loss
+			# => or split raml train data again into dev & test...
+			# => or don't do this eval ?
 			self.net.eval()
 			devloss_detail = self.evaluate("dev")
 			self.devSummary(self.now_batch, devloss_detail)

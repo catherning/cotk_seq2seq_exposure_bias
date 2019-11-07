@@ -23,9 +23,7 @@ class Network(BaseNetwork):
 		self.embLayer.forward(incoming)
 		self.postEncoder.forward(incoming)
 		self.connectLayer.forward(incoming)
-		# TODO: def training_rewards
-		training_rewards = None
-		self.genNetwork.forward(incoming, training_rewards)
+		self.genNetwork.forward(incoming)
 
 		incoming.result.loss = incoming.result.word_loss
 
@@ -40,7 +38,7 @@ class Network(BaseNetwork):
 		self.embLayer.forward(incoming)
 		self.postEncoder.forward(incoming)
 		self.connectLayer.forward(incoming)
-		self.genNetwork.detail_forward(incoming, training_rewards)
+		self.genNetwork.detail_forward(incoming)
 
 class EmbeddingLayer(nn.Module):
 	def __init__(self, param):
@@ -146,7 +144,7 @@ class GenNetwork(nn.Module):
 			gen.w_o = new_gen.w_o
 			gen.length = new_gen.length
 
-	def forward(self, incoming, training_rewards):
+	def forward(self, incoming):
     	# XXX: Should be of size (batch_size) ?
 		inp = Storage()
 		inp.resp_length = incoming.data.resp_length
@@ -164,7 +162,10 @@ class GenNetwork(nn.Module):
 
 		# XXX: raml loss
 		# incoming.result.word_loss = self.lossCE(w_o_f, data_f)
-		incoming.result.word_loss = raml_loss(w_o_f, data_f, training_rewards)
+		if self.training == True:
+			incoming.result.word_loss = raml_loss(w_o_f, data_f, incoming.rewards_ts)
+		else:
+			incoming.result.word_loss = self.lossCE(w_o_f, data_f)
 		incoming.result.perplexity = torch.exp(incoming.result.word_loss)
 
 	def detail_forward(self, incoming):

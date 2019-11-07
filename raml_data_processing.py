@@ -10,104 +10,144 @@ import argparse
 
 # coding:utf-8
 import os
-import sys
 import json
+import numpy as np
 
 from cotk._utils import hooks
 from cotk._utils.file_utils import get_resource_file_path
-from cotk.dataloader import SingleTurnDialog
+from cotk.dataloader import SingleTurnDialog,OpenSubtitles
 from utils import debug, Storage, read_raml_sample_file
 
-class IWSLT14(SingleTurnDialog):
+class IWSLT14(OpenSubtitles):
     '''A dataloader for IWSLT14 dataset which is a Machine Learning translation dataset
     Arguments:{ARGUMENTS}
     Refer to :class:`.SingleTurnDialog` for attributes and methods.
     References:
     '''
 
-    ARGUMENTS = SingleTurnDialog.ARGUMENTS
+    ARGUMENTS = OpenSubtitles.ARGUMENTS
 
     @hooks.hook_dataloader
     def __init__(self, file_id, min_vocab_times=10,
-                 max_sent_length=50, invalid_vocab_times=0):
+                 max_sent_length=50, invalid_vocab_times=0,
+                 num_samples=10,raml_file="samples_iwslt14.txt",tau=0.4):
         self._file_id = file_id
         self._file_path = get_resource_file_path(file_id)
         self._min_vocab_times = min_vocab_times
         self._max_sent_length = max_sent_length
         self._invalid_vocab_times = invalid_vocab_times
+        
+        #RAML specific
+        self.raml_data = read_raml_sample_file(os.path.join(self._file_path,raml_file))
+        self.n_samples = num_samples
+        self.tau = tau
         super(IWSLT14, self).__init__()
 
-    def _load_data(self):
-        r'''Loading dataset, invoked during the initialization of :class:`SingleTurnDialog`.
-        return vocab_list, valid_vocab_len, data, data_size
+    def get_raml_batch(self, indexes):
+        '''{LanguageProcessingBase.GET_BATCH_DOC_WITHOUT_RETURNS}
+            same def as get_batch(self, indexes) in SingleTurnDialog
         '''
+
+        res = {}
+        batch_size = len(indexes) # XXX: either that or give args (batch_size and nb inputs) in input...
+        source_buffer, target_buffer = [], []
+
+        for index in indexes:
+            training_pair = self.raml_data[index]
+
+            for target in training_pair['targets']:
+                source_buffer.append(training_pair['source'])
+                target_buffer.append(target)
+
+        source_ids = []
+        source_length = []
+        target_ids = []
+        target_length = []
+        scores = []
+
+        trunc_len_src = self._max_sent_length
+        trunc_len_tgt = self._max_sent_length
         
-        origin_data = {}
-        for key in self.key_name:
-            f_file = open("%s/opensub_pair_%s.post" % (self._file_path, key), 'r', encoding='utf-8')
-            g_file = open("%s/opensub_pair_%s.response" % (self._file_path, key), 'r', encoding='utf-8')
-            origin_data[key] = {}
-            origin_data[key]['post'] = list(map(lambda line: line.split(), f_file.readlines()))
-            origin_data[key]['resp'] = list(map(lambda line: line.split(), g_file.readlines()))
+        # Source sent to id
+        # TODO: can refactor (and same vocab now!) ?
+        for sentence in source_buffer:
+            ids = [self.word2id[token]
+                for token in sentence.split()][:trunc_len_src]
+            ids = ids + [self.eos_id]
 
-        raw_vocab_list = list(chain(*(origin_data['train']['post'] + origin_data['train']['resp'])))
-        # Important: Sort the words preventing the index changes between different runs
-        vocab = sorted(Counter(raw_vocab_list).most_common(), key=lambda pair: (-pair[1], pair[0]))
-        left_vocab = list(filter(lambda x: x[1] >= self._min_vocab_times, vocab))
-        vocab_list = self.ext_vocab + list(map(lambda x: x[0], left_vocab))
-        valid_vocab_len = len(vocab_list)
-        valid_vocab_set = set(vocab_list)
+            source_ids.append(ids)
+            source_length.append(len(ids))
 
-        for key in self.key_name:
-            if key == 'train':
-                continue
-            raw_vocab_list.extend(list(chain(*(origin_data[key]['post'] + origin_data[key]['resp']))))
-        vocab = sorted(Counter(raw_vocab_list).most_common(), \
-                       key=lambda pair: (-pair[1], pair[0]))
-        left_vocab = list( \
-            filter( \
-                lambda x: x[1] >= self._invalid_vocab_times and x[0] not in valid_vocab_set, \
-                vocab))
-        vocab_list.extend(list(map(lambda x: x[0], left_vocab)))
+        # Target sent to id
+        for sentence, score_str in target_buffer:
+            ids = [self.go_id]
+            ids = ids + [self.word2id[token]
+                for token in sentence.split()][:trunc_len_tgt]
+            ids = ids + [self.eos_id]
 
-        print("valid vocab list length = %d" % valid_vocab_len)
-        print("vocab list length = %d" % len(vocab_list))
+            target_ids.append(ids)
+            scores.append(eval(score_str))
+            target_length.append(len(ids))
 
-        word2id = {w: i for i, w in enumerate(vocab_list)}
-        line2id = lambda line: ([self.go_id] + \
-                    list(map(lambda word: word2id[word] if word in word2id else self.unk_id, line)) + \
-                    [self.eos_id])[:self._max_sent_length]
+        rewards = []
+        for i in range(0, batch_size, self.n_samples):
+            tmp = np.array(scores[i:i + self.n_samples])
+            tmp = np.exp(tmp / self.tau) / np.sum(np.exp(tmp / self.tau))
+            for j in range(0, self.n_samples):
+                rewards.append(tmp[j])
 
-        data = {}
-        data_size = {}
-        for key in self.key_name:
-            data[key] = {}
+        # TODO: padding. Could do differently
+        for value in source_ids:
+            while len(value) < max(source_length):
+                value.append(0)
+        for value in target_ids:
+            while len(value) < max(target_length):
+                value.append(0)
 
-            data[key]['post'] = list(map(line2id, origin_data[key]['post']))
-            data[key]['resp'] = list(map(line2id, origin_data[key]['resp']))
-            data_size[key] = len(data[key]['post'])
-            vocab = list(chain(*(origin_data[key]['post'] + origin_data[key]['resp'])))
-            vocab_num = len(vocab)
-            oov_num = len(list(filter(lambda word: word not in word2id, vocab)))
-            invalid_num = len( \
-                list( \
-                    filter( \
-                        lambda word: word not in valid_vocab_set, \
-                        vocab))) - oov_num
-            length = list(map(len, origin_data[key]['post'] + origin_data[key]['resp']))
-            cut_num = np.sum(np.maximum(np.array(length) - self._max_sent_length + 1, 0))
-            print("%s set. invalid rate: %f, unknown rate: %f, max length before cut: %d, \
-                    cut word rate: %f" % \
-                    (key, invalid_num / vocab_num, oov_num / vocab_num, max(length), cut_num / vocab_num))
+        res['post'] = res_post = np.array(source_ids)
+        res['resp'] = res_resp = np.array(target_ids)
+        res['post_length'] = np.array(source_length)
+        res['resp_length'] = np.array(target_length)
+        res["rewards_ts"] = np.array(rewards)
 
-        return vocab_list, valid_vocab_len, data, data_size
+        # XXX: useless to def it ? 
+        res["post_allvocabs"] = res_post.copy()
+        res["resp_allvocabs"] = res_resp.copy()
+        res_post[res_post >= self.valid_vocab_len] = self.unk_id
+        res_resp[res_resp >= self.valid_vocab_len] = self.unk_id
+        
+        return res
 
+    def get_next_raml_batch(self, key, ignore_left_samples=False):
+        '''Get next batch. It can be called only after Initializing batches (:func:`restart`).
 
-    def tokenize(self, sentence):
-        pass
+        Arguments:
+            key (str): key name of dataset, must be contained in ``self.key_name``.
+            ignore_left_samples (bool): If the number of left samples is not equal to
+                ``batch_size``, ignore them. This make sure all batches have same number of samples.
+                Default: ``False``
 
-    def get_batch(self, key, indexes):
-        pass
+        Returns:
+            A dict like :func:`get_batch`, or None if the epoch is end.
+        '''
+        # if key not in self.key_name:
+        #     raise ValueError("No set named %s." % key) # for now, raml file only for training
+        if self.batch_size[key] is None:
+            raise RuntimeError( \
+                "Please run restart before calling this function.")
+        batch_id = self.batch_id[key]
+        start, end = batch_id * \
+            self.batch_size[key], (batch_id + 1) * self.batch_size[key]
+        if start >= len(self.index[key]):
+            return None
+        if ignore_left_samples and end > len(self.index[key]):
+            return None
+        index = self.index[key][start:end]
+        # TODO: only that changed. could same get_next_batch func with raml as bool param if works like that ?
+        res = self.get_raml_batch(key, index) 
+        self.batch_id[key] += 1
+        return res
+
 
 
 def main(args):
