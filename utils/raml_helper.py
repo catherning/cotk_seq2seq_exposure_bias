@@ -38,7 +38,7 @@ def raml_loss(pred, target, sent_size, training_rewards):
     sent_loss = []
     for i in range(target.size()[1]):
         sent_loss.append(nn.CrossEntropyLoss()(pred[:-1,i,:],target[:,i]))
-    return torch.sum(torch.Tensor(sent_loss) * torch.Tensor(training_rewards)) / torch.sum(torch.Tensor(training_rewards))
+    return torch.sum(torch.tensor(sent_loss, requires_grad=True) * torch.Tensor(training_rewards)) / torch.sum(torch.Tensor(training_rewards))
 
     # XXX: tx.losses.sequence_sparse_softmax_cross_entropy output is of rank 0,1 or 2. here should be at least 1. 
     
