@@ -15,8 +15,9 @@ import numpy as np
 
 from cotk._utils import hooks
 from cotk._utils.file_utils import get_resource_file_path
-from cotk.dataloader import SingleTurnDialog,OpenSubtitles
+from cotk.dataloader import SingleTurnDialog, OpenSubtitles
 from utils import debug, Storage, read_raml_sample_file
+
 
 class IWSLT14(OpenSubtitles):
     '''A dataloader for IWSLT14 dataset which is a Machine Learning translation dataset
@@ -30,18 +31,19 @@ class IWSLT14(OpenSubtitles):
     @hooks.hook_dataloader
     def __init__(self, file_id, min_vocab_times=10,
                  max_sent_length=50, invalid_vocab_times=0,
-                 num_samples=10,raml_file="samples_iwslt14.txt",tau=0.4):
+                 num_samples=10, raml_file="samples_iwslt14.txt", tau=0.4):
         self._file_id = file_id
         self._file_path = get_resource_file_path(file_id)
         self._min_vocab_times = min_vocab_times
         self._max_sent_length = max_sent_length
         self._invalid_vocab_times = invalid_vocab_times
-        
-        #RAML specific
-        self.raml_data = read_raml_sample_file(os.path.join(self._file_path,raml_file))
+
+        # RAML specific
+        self.raml_data = read_raml_sample_file(
+            os.path.join(self._file_path, raml_file), num_samples)
         self.n_samples = num_samples
         self.tau = tau
-        super(IWSLT14, self).__init__()
+        super(IWSLT14, self).__init__(file_id=file_id)
 
     def get_raml_batch(self, indexes):
         '''{LanguageProcessingBase.GET_BATCH_DOC_WITHOUT_RETURNS}
@@ -49,7 +51,8 @@ class IWSLT14(OpenSubtitles):
         '''
 
         res = {}
-        batch_size = len(indexes) # XXX: either that or give args (batch_size and nb inputs) in input...
+        # XXX: either that or give args (batch_size and nb inputs) in input...
+        batch_size = self.batch_size["train"]*self.n_samples
         source_buffer, target_buffer = [], []
 
         for index in indexes:
@@ -67,12 +70,12 @@ class IWSLT14(OpenSubtitles):
 
         trunc_len_src = self._max_sent_length
         trunc_len_tgt = self._max_sent_length
-        
+
         # Source sent to id
-        # TODO: can refactor (and same vocab now!) ?
+        # TODO: can use the one in dm dataloader because already done (same index) ?
         for sentence in source_buffer:
             ids = [self.word2id[token]
-                for token in sentence.split()][:trunc_len_src]
+                   for token in sentence.split()][:trunc_len_src]
             ids = ids + [self.eos_id]
 
             source_ids.append(ids)
@@ -82,7 +85,7 @@ class IWSLT14(OpenSubtitles):
         for sentence, score_str in target_buffer:
             ids = [self.go_id]
             ids = ids + [self.word2id[token]
-                for token in sentence.split()][:trunc_len_tgt]
+                         for token in sentence.split()][:trunc_len_tgt]
             ids = ids + [self.eos_id]
 
             target_ids.append(ids)
@@ -99,10 +102,10 @@ class IWSLT14(OpenSubtitles):
         # TODO: padding. Could do differently
         for value in source_ids:
             while len(value) < max(source_length):
-                value.append(0)
+                value.append(self.pad_id)
         for value in target_ids:
             while len(value) < max(target_length):
-                value.append(0)
+                value.append(self.pad_id)
 
         res['post'] = res_post = np.array(source_ids)
         res['resp'] = res_resp = np.array(target_ids)
@@ -110,12 +113,12 @@ class IWSLT14(OpenSubtitles):
         res['resp_length'] = np.array(target_length)
         res["rewards_ts"] = np.array(rewards)
 
-        # XXX: useless to def it ? 
+        # XXX: useless to def it ?
         res["post_allvocabs"] = res_post.copy()
         res["resp_allvocabs"] = res_resp.copy()
         res_post[res_post >= self.valid_vocab_len] = self.unk_id
         res_resp[res_resp >= self.valid_vocab_len] = self.unk_id
-        
+
         return res
 
     def get_next_raml_batch(self, key, ignore_left_samples=False):
@@ -133,7 +136,7 @@ class IWSLT14(OpenSubtitles):
         # if key not in self.key_name:
         #     raise ValueError("No set named %s." % key) # for now, raml file only for training
         if self.batch_size[key] is None:
-            raise RuntimeError( \
+            raise RuntimeError(
                 "Please run restart before calling this function.")
         batch_id = self.batch_id[key]
         start, end = batch_id * \
@@ -144,10 +147,10 @@ class IWSLT14(OpenSubtitles):
             return None
         index = self.index[key][start:end]
         # TODO: only that changed. could same get_next_batch func with raml as bool param if works like that ?
-        res = self.get_raml_batch(key, index) 
+        res = self.get_raml_batch(index)
         self.batch_id[key] += 1
-        return res
 
+        return res
 
 
 def main(args):
@@ -155,6 +158,9 @@ def main(args):
     print(data_class)
     data_arg = Storage()
     data_arg.file_id = args.datapath
+    data_arg.num_samples = 10 or args.n_samples
+    data_arg.raml_file = "samples_iwslt14.txt"
+    data_arg.tau = 0.4
 
     def load_dataset(data_arg):
         return data_class(**data_arg)
@@ -166,15 +172,13 @@ if __name__ == "__main__":
 
     args = Storage()
 
-    # args.dataset = "IWSLT14"
-    args.datapath = "D:/Documents/THU/Cotk/data/iwslt14"
+    args.dataset = "IWSLT14"
+    args.datapath = "D:/Documents/THU/Cotk/data/iwslt14/"
 
-    args.dataset ='OpenSubtitles'
+    # args.dataset = 'OpenSubtitles'
 
-    args.raml_file = os.path.join(args.datapath,"samples_iwslt14.txt")
     args.n_samples = 10
-    data = read_raml_sample_file(args)
-    
+
     # args.datapath ="D:/.cotk_cache/9cf4d4fbf4394c0725c4ad16bf60afd4a40e64c8465bde38d038586118a54888_unzip/opensubtitles/"
 
     dm = main(args)

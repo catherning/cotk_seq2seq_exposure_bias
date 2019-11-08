@@ -71,6 +71,7 @@ class Seq2seq(BaseModel):
 
 		if data is None:
 			# XXX: might not work cos for now, 2 dm, if raml, then might always get sth, so data never none ?
+			print(f"data batch is none during {key}")
 			if restart:
 				if key == "train":
 					dm.restart(key, self.args.batch_size//self.args.n_samples) 
@@ -96,8 +97,8 @@ class Seq2seq(BaseModel):
 	def train(self, batch_num):
 		args = self.param.args
 
-		dm = self.param.volatile.raml_data
-		# dm = self.param.volatile.dm
+		# dm = self.param.volatile.raml_data
+		dm = self.param.volatile.dm
 		datakey = 'train'
 
 		for i in range(batch_num):
@@ -163,7 +164,7 @@ class Seq2seq(BaseModel):
 			self.now_epoch += 1
 			self.updateOtherWeights()
 
-			dm.restart('train', args.batch_size)
+			dm.restart('train', args.batch_size//args.n_samples)
 			self.net.train()
 			self.train(args.batch_per_epoch)
 

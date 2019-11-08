@@ -163,7 +163,7 @@ class GenNetwork(nn.Module):
 		# XXX: raml loss
 		# incoming.result.word_loss = self.lossCE(w_o_f, data_f)
 		if self.training == True:
-			incoming.result.word_loss = raml_loss(w_o_f, data_f, incoming.rewards_ts)
+			incoming.result.word_loss = raml_loss(gen.w, incoming.data.resp[1:], incoming.data.resp_length-1, incoming.data.rewards_ts)
 		else:
 			incoming.result.word_loss = self.lossCE(w_o_f, data_f)
 		incoming.result.perplexity = torch.exp(incoming.result.word_loss)

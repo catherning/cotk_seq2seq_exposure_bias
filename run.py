@@ -72,7 +72,7 @@ def run(*argv):
 		help='Specify random seed. Default: 0')
 
 	# RAML parameters
-	parser.add_argument('--raml_file', type=str, default='data/iwslt14/samples_iwslt14.txt',
+	parser.add_argument('--raml_file', type=str, default='samples_iwslt14.txt',
 		help='the samples and rewards described in RAML')
 	parser.add_argument('--n_samples', type=int, default=10,
 		help='number of samples for every target sentence')
@@ -123,7 +123,7 @@ def run(*argv):
 	args.tau = cargs.tau
 
 	args.lr = cargs.lr
-	args.batch_size = 64 #64 * args.n_samples
+	args.batch_size = 3 * args.n_samples
 	args.batch_num_per_gradient = 4
 	args.grad_clip = 5
 	args.show_sample = [0]  # show which batch when evaluating at tensorboard

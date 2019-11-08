@@ -7,15 +7,17 @@ from cotk.dataloader import SingleTurnDialog
 from cotk.wordvector import WordVector, Glove
 
 from utils import debug, try_cache, cuda_init, Storage
-from baselines.cotk_seq2seq_code.seq2seq import Seq2seq
+from raml_data_processing import IWSLT14
 # TODO: change back to raml
-# from seq2seq_raml import Seq2seq
+from seq2seq_raml import Seq2seq
+# from baselines.cotk_seq2seq_code.seq2seq import Seq2seq
+
 
 def main(args, load_exclude_set, restoreCallback):
-	logging.basicConfig(\
-		filename=0,\
-		level=logging.DEBUG,\
-		format='%(asctime)s %(filename)s[line:%(lineno)d] %(message)s',\
+	logging.basicConfig(
+		filename=0,
+		level=logging.DEBUG,
+		format='%(asctime)s %(filename)s[line:%(lineno)d] %(message)s',
 		datefmt='%H:%M:%S')
 
 	if args.debug:
@@ -31,6 +33,9 @@ def main(args, load_exclude_set, restoreCallback):
 	data_class = SingleTurnDialog.load_class(args.dataset)
 	data_arg = Storage()
 	data_arg.file_id = args.datapath
+	data_arg.num_samples = 10 or args.n_samples
+	data_arg.raml_file = "samples_iwslt14.txt"
+	data_arg.tau = 0.4
 	wordvec_class = WordVector.load_class(args.wvclass)
 	
 	# XXX: No pretrained vectors. For machine translation with german, wouldn't work ? First try with, if doesn't work, then without
