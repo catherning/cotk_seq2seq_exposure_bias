@@ -13,6 +13,11 @@ Sutskever, I., Vinyals, O., & Le, Q. V. (2014). Sequence to sequence learning wi
 
 Bahdanau, D., Cho, K., & Bengio, Y. (2015). Neural machine translation by jointly learning to align and translate. In *International Conference on Learning Representation*.
 
+# TODO:
+- inherit from seq2seq classes etc.
+- change lr
+- check correct def of loss
+
 ## Require Packages
 
 * **python3**

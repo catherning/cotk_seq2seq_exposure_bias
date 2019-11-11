@@ -8,10 +8,8 @@ from torch import nn, optim
 import numpy as np
 import tqdm
 
-import random
-
 from utils import Storage, cuda, BaseModel, SummaryHelper, get_mean, storage_to_list, \
-	CheckpointManager, LongTensor, read_raml_sample_file
+	CheckpointManager, LongTensor
 from network import Network
 
 class Seq2seq(BaseModel):
@@ -63,7 +61,7 @@ class Seq2seq(BaseModel):
 		return incoming
 
 	def get_next_batch(self, dm, key, restart=True):
-		if key=="train":
+		if key=="train" and self.args.raml:
 			data = dm.get_next_raml_batch(key)
 		else:
 			# normal dataset
@@ -73,7 +71,7 @@ class Seq2seq(BaseModel):
 			# XXX: might not work cos for now, 2 dm, if raml, then might always get sth, so data never none ?
 			print(f"data batch is none during {key}")
 			if restart:
-				if key == "train":
+				if key == "train" and self.args.raml:
 					dm.restart(key, self.args.batch_size//self.args.n_samples) 
 				else:
 					dm.restart(key)
@@ -93,11 +91,10 @@ class Seq2seq(BaseModel):
 			return None
 		return self._preprocess_batch(data)
 
-		# TODO: fuse code
+
 	def train(self, batch_num):
 		args = self.param.args
 
-		# dm = self.param.volatile.raml_data
 		dm = self.param.volatile.dm
 		datakey = 'train'
 
@@ -157,14 +154,14 @@ class Seq2seq(BaseModel):
 		args = self.param.args
 		dm = self.param.volatile.dm
 
-		# TODO: check if here for calling data is ok
-		# raml_train_data = read_raml_sample_file(args)
-
 		while self.now_epoch < args.epochs:
 			self.now_epoch += 1
 			self.updateOtherWeights()
 
-			dm.restart('train', args.batch_size//args.n_samples)
+			if self.args.raml:
+				dm.restart('train', args.batch_size//args.n_samples)
+			else:
+				dm.restart('train', args.batch_size)
 			self.net.train()
 			self.train(args.batch_per_epoch)
 
