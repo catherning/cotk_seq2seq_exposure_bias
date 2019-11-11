@@ -157,7 +157,7 @@ class GenNetwork(nn.Module):
 
 		# XXX: raml loss
 		if self.training == True and self.args.raml:
-				incoming.result.word_loss = raml_loss(gen.w, incoming.data.resp[1:], incoming.data.resp_length-1, incoming.data.rewards_ts,self.lossCE)
+			incoming.result.word_loss = raml_loss(gen.w, incoming.data.resp[1:], incoming.data.resp_length-1, incoming.data.rewards_ts, self.lossCE)
 		else:
 			w_o_f = flattenSequence(gen.w, incoming.data.resp_length-1)
 			data_f = flattenSequence(incoming.data.resp[1:], incoming.data.resp_length-1)

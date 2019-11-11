@@ -33,13 +33,14 @@ def read_raml_sample_file(file_path, n_samples):
     return train_data
 
 
-def raml_loss(pred, target, sent_size, training_rewards,loss_fn):
+def raml_loss(pred, target, sent_size, training_rewards, loss_fn):
     # TODO: check in code and paper, teacher forcing, loss on the golden target or on targets with lower reward, to make model train
-    sent_loss = []
+    training_rewards = torch.Tensor(training_rewards)
+    sent_loss = torch.zeros(target.size()[1])
     for i in range(target.size()[1]):
-        sent_loss.append(loss_fn(pred[:sent_size[i], i, :], target[:sent_size[i], i]))
-    result = torch.sum(torch.tensor(sent_loss, requires_grad=True) *
-                       torch.Tensor(training_rewards)) / torch.sum(torch.Tensor(training_rewards))
+        sent_loss[i] = loss_fn(pred[:sent_size[i], i, :],
+                               target[:sent_size[i], i])
+    result = torch.sum(sent_loss * training_rewards) / torch.sum(training_rewards)
     return result
 
 
