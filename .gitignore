@@ -121,6 +121,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-.vscode
+.vscode/
+.idea/
 run_with_dl_files.bat
 tensorboard/

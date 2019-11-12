@@ -31,7 +31,7 @@ class Seq2seqRAML(Seq2seq):
             print(f"data batch is none during {key}")
             if restart:
                 if key == "train" and self.args.raml:
-                    dm.restart(key, self.args.batch_size//self.args.n_samples)
+                    dm.restart(key, self.args.batch_size // self.args.n_samples)
                 else:
                     dm.restart(key)
                 return self.get_next_batch(dm, key, False)
@@ -52,16 +52,12 @@ class Seq2seqRAML(Seq2seq):
             self.updateOtherWeights()
 
             if self.args.raml:
-                dm.restart('train', args.batch_size//args.n_samples)
+                dm.restart('train', args.batch_size // args.n_samples)
             else:
                 dm.restart('train', args.batch_size)
             self.net.train()
             self.train(args.batch_per_epoch)
 
-            # TODO: for evaluation, also calculates loss (using reward!)
-            # => either keep other def of loss
-            # => or split raml train data again into dev & test...
-            # => or don't do this eval ?
             self.net.eval()
             devloss_detail = self.evaluate("dev")
             self.devSummary(self.now_batch, devloss_detail)

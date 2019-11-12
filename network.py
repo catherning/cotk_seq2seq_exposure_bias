@@ -1,8 +1,6 @@
 # coding:utf-8
-import logging
 
 import torch
-from torch import nn
 
 from utils import Storage, flattenSequence, raml_loss
 from baselines.cotk_seq2seq_code.network import Network, GenNetwork, EmbeddingLayer, PostEncoder, ConnectLayer

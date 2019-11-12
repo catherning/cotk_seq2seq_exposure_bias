@@ -2,7 +2,6 @@ import os
 import numpy as np
 
 import torch
-import torch.nn.functional as F
 from torch import nn
 
 from cotk._utils import hooks
@@ -45,11 +44,11 @@ def raml_loss(pred, target, sent_size, training_rewards, loss_fn):
 
 
 class IWSLT14(OpenSubtitles):
-    '''A dataloader for IWSLT14 dataset which is a Machine Learning translation dataset
+    """A data-loader for IWSLT14 dataset which is a Machine Learning translation dataset
     Arguments:{ARGUMENTS}
     Refer to :class:`.OpenSubtitles` for attributes and methods.
     References:
-    '''
+    """
 
     ARGUMENTS = OpenSubtitles.ARGUMENTS
 
@@ -71,12 +70,12 @@ class IWSLT14(OpenSubtitles):
         super(IWSLT14, self).__init__(file_id=file_id)
 
     def get_raml_batch(self, indexes):
-        '''{LanguageProcessingBase.GET_BATCH_DOC_WITHOUT_RETURNS}
+        """{LanguageProcessingBase.GET_BATCH_DOC_WITHOUT_RETURNS}
             same def as get_batch(self, indexes) in SingleTurnDialog
-        '''
+        """
 
         res = {}
-        batch_size = self.batch_size["train"]*self.n_samples
+        batch_size = self.batch_size["train"] * self.n_samples
         source_buffer, target_buffer = [], []
 
         for index in indexes:
@@ -164,7 +163,7 @@ class IWSLT14(OpenSubtitles):
                 "Please run restart before calling this function.")
         batch_id = self.batch_id[key]
         start, end = batch_id * \
-            self.batch_size[key], (batch_id + 1) * self.batch_size[key]
+                     self.batch_size[key], (batch_id + 1) * self.batch_size[key]
         if start >= len(self.index[key]):
             return None
         if ignore_left_samples and end > len(self.index[key]):
