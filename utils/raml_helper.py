@@ -145,7 +145,7 @@ class IWSLT14(OpenSubtitles):
         return res
 
     def get_next_raml_batch(self, key, ignore_left_samples=False):
-        '''Get next batch. It can be called only after Initializing batches (:func:`restart`).
+        """Get next batch. It can be called only after Initializing batches (:func:`restart`).
 
         Arguments:
             key (str): key name of dataset, must be contained in ``self.key_name``.
@@ -155,15 +155,14 @@ class IWSLT14(OpenSubtitles):
 
         Returns:
             A dict like :func:`get_batch`, or None if the epoch is end.
-        '''
+        """
         # if key not in self.key_name:
         #     raise ValueError("No set named %s." % key) # for now, raml file only for training
         if self.batch_size[key] is None:
             raise RuntimeError(
                 "Please run restart before calling this function.")
         batch_id = self.batch_id[key]
-        start, end = batch_id * \
-                     self.batch_size[key], (batch_id + 1) * self.batch_size[key]
+        start, end = batch_id * self.batch_size[key], (batch_id + 1) * self.batch_size[key]
         if start >= len(self.index[key]):
             return None
         if ignore_left_samples and end > len(self.index[key]):

@@ -5,6 +5,7 @@ import torch
 from utils import Storage, flattenSequence, raml_loss
 from baselines.cotk_seq2seq_code.network import Network, GenNetwork, EmbeddingLayer, PostEncoder, ConnectLayer
 
+
 # pylint: disable=W0221
 
 
@@ -27,13 +28,13 @@ class GenRAMLNetwork(GenNetwork):
         incoming.gen = gen = Storage()
         self.teacherForcing(inp, gen)
 
-        if self.training == True and self.args.raml:
+        if self.training and self.args.raml:
             incoming.result.word_loss = raml_loss(
-                gen.w, incoming.data.resp[1:], incoming.data.resp_length-1, incoming.data.rewards_ts, self.lossCE)
+                gen.w, incoming.data.resp[1:], incoming.data.resp_length - 1, incoming.data.rewards_ts, self.lossCE)
         else:
-            w_o_f = flattenSequence(gen.w, incoming.data.resp_length-1)
+            w_o_f = flattenSequence(gen.w, incoming.data.resp_length - 1)
             data_f = flattenSequence(
-                incoming.data.resp[1:], incoming.data.resp_length-1)
+                incoming.data.resp[1:], incoming.data.resp_length - 1)
             incoming.result.word_loss = self.lossCE(w_o_f, data_f)
 
         incoming.result.perplexity = torch.exp(incoming.result.word_loss)
