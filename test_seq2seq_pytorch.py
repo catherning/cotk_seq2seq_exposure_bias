@@ -45,7 +45,7 @@ def modify_args(args):
 	args.model_dir = os.path.join(cwd, 'model_test')
 	args.cache_dir = os.path.join(cwd, 'cache_test')
 
-	args.name = 'test_seq2seq_pytorch'
+	args.name = 'test_seq2seqraml_pytorch'
 	args.wvclass = 'Glove'
 	args.epochs = 1
 	args.batch_per_epoch = 5

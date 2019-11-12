@@ -7,7 +7,7 @@ from cotk.dataloader import SingleTurnDialog
 from cotk.wordvector import WordVector, Glove
 
 from utils import debug, try_cache, cuda_init, Storage, IWSLT14
-from seq2seq_raml import Seq2seq
+from seq2seq_raml import Seq2seqRAML
 
 def main(args, load_exclude_set, restoreCallback):
 	logging.basicConfig(
@@ -57,7 +57,7 @@ def main(args, load_exclude_set, restoreCallback):
 	param.args = args
 	param.volatile = volatile
 
-	model = Seq2seq(param)
+	model = Seq2seqRAML(param)
 	if args.mode == "train":
 		model.train_process()
 	elif args.mode == "test":
