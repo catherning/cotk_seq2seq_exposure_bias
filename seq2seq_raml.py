@@ -1,17 +1,17 @@
 # coding:utf-8
 import logging
-import time
 import os
+import time
 
-import torch
-from torch import nn, optim
 import numpy as np
+import torch
 import tqdm
+from torch import nn, optim
 
-from utils import Storage, cuda, BaseModel, SummaryHelper, get_mean, storage_to_list, \
-    CheckpointManager, LongTensor
-from network import RAMLNetwork
 from baselines.cotk_seq2seq_code.seq2seq import Seq2seq
+from network import RAMLNetwork
+from utils import (BaseModel, CheckpointManager, LongTensor, Storage,
+                   SummaryHelper, cuda, get_mean, storage_to_list)
 
 
 class Seq2seqRAML(Seq2seq):
@@ -20,12 +20,7 @@ class Seq2seqRAML(Seq2seq):
         super().__init__(param)
 
     def get_next_batch(self, dm, key, restart=True):
-        if key == "train" and self.args.raml:
-            data = dm.get_next_raml_batch(key)
-        else:
-            # normal dataset
-            data = dm.get_next_batch(key)
-
+        data = dm.get_next_batch(key)
         if data is None:
             # XXX: might not work cos for now, 2 dm, if raml, then might always get sth, so data never none ?
             print(f"data batch is none during {key}")
