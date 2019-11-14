@@ -1,5 +1,7 @@
 import os
 
+from datetime import datetime
+
 import numpy as np
 import torch
 from cotk._utils import hooks
@@ -52,12 +54,16 @@ class IWSLT14(OpenSubtitles):
     def read_raml_sample_file(self):
 
         def line2id(line):
+            # self.tokenize(line) is more proper than line.split(), but longer
+            # self.convert_tokens_to_ids more proper than self.word2id.get(token), but longer
             return [self.go_id] + [self.word2id[token]
                                    for token in line.split()][:self._max_sent_length] + [self.eos_id]
             # return ([self.go_id] +
             #         list(map(lambda word: self.word2id[word] if word in self.word2id else self.unk_id, line)) +
             #         [self.eos_id])[:self._max_sent_length]
+            # return [self.go_id] +  self.convert_tokens_to_ids(line.split(),invalid_vocab=True)[:self._max_sent_length] + [self.eos_id]
 
+        time1 = datetime.now()
         with open(self.raml_path, encoding='utf-8') as raml_file:
             train_data = []
             sample_num = -1
@@ -80,28 +86,28 @@ class IWSLT14(OpenSubtitles):
                         for i in range(self.n_samples - 1):
                             train_data[-1]['targets'].append(line.split('|||'))
 
+        print(f"Finished processing in {datetime.now()-time1}")
+
         return train_data
 
     def get_raml_batch(self, indexes):
         """{LanguageProcessingBase.GET_BATCH_DOC_WITHOUT_RETURNS}
             same def as get_batch(self, indexes) in SingleTurnDialog
         """
-
         res = {}
         augmented_batch_size = self.batch_size["train"] * self.n_samples
 
         source_ids = []
         target_ids = []
         scores = []
-        res['post_length'] = post_len = np.zeros((augmented_batch_size))
-        res['resp_length'] = resp_len = np.zeros((augmented_batch_size))
+        res['post_length'] = post_len = np.zeros((augmented_batch_size), dtype=int)
+        res['resp_length'] = resp_len = np.zeros((augmented_batch_size), dtype=int)
+        res["rewards_ts"] = rewards = np.zeros((augmented_batch_size))
 
         for index in indexes:
             training_pair = self.raml_data[index]
             for sample_id, target in enumerate(training_pair['targets_ids']):
-                # XXX: input has now <go> token, compared to before.
-                # => more coherent with eval & test
-                # But have dim issues ?
+                # XXX: input has now <go> token, compared to before. => more coherent with eval & test
                 post = self.data['train']['post'][index]
                 source_ids.append(post)
                 target_ids.append(target[0])
@@ -109,12 +115,11 @@ class IWSLT14(OpenSubtitles):
                 resp_len[sample_id] = len(target[0])
                 scores.append(target[1])
 
-        rewards = []
         for i in range(0, augmented_batch_size, self.n_samples):
             tmp = np.array(scores[i:i + self.n_samples])
             tmp = np.exp(tmp / self.tau) / np.sum(np.exp(tmp / self.tau))
             for j in range(0, self.n_samples):
-                rewards.append(tmp[j])
+                rewards[i+j] = tmp[j]
 
         res['post'] = res_post = np.zeros(
             (augmented_batch_size, max(post_len)), dtype=int)
@@ -125,8 +130,6 @@ class IWSLT14(OpenSubtitles):
             res_post[i, :len(value)] = value
         for i, value in enumerate(target_ids):
             res_resp[i, :len(value)] = value
-
-        res["rewards_ts"] = np.array(rewards)
 
         # XXX: useless to def it ?
         res["post_allvocabs"] = res_post.copy()
