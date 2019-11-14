@@ -1,7 +1,5 @@
 import os
 
-from datetime import datetime
-
 import numpy as np
 import torch
 from cotk._utils import hooks
@@ -58,12 +56,7 @@ class IWSLT14(OpenSubtitles):
             # self.convert_tokens_to_ids more proper than self.word2id.get(token), but longer
             return [self.go_id] + [self.word2id[token]
                                    for token in line.split()][:self._max_sent_length] + [self.eos_id]
-            # return ([self.go_id] +
-            #         list(map(lambda word: self.word2id[word] if word in self.word2id else self.unk_id, line)) +
-            #         [self.eos_id])[:self._max_sent_length]
-            # return [self.go_id] +  self.convert_tokens_to_ids(line.split(),invalid_vocab=True)[:self._max_sent_length] + [self.eos_id]
-
-        time1 = datetime.now()
+ 
         with open(self.raml_path, encoding='utf-8') as raml_file:
             train_data = []
             sample_num = -1
@@ -85,8 +78,6 @@ class IWSLT14(OpenSubtitles):
                     if sample_num == 1:
                         for i in range(self.n_samples - 1):
                             train_data[-1]['targets'].append(line.split('|||'))
-
-        print(f"Finished processing in {datetime.now()-time1}")
 
         return train_data
 

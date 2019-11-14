@@ -16,8 +16,8 @@ from utils import (BaseModel, CheckpointManager, LongTensor, Storage,
 
 class Seq2seqRAML(Seq2seq):
     def __init__(self, param):
-        net = RAMLNetwork(param)
         super().__init__(param)
+        net = RAMLNetwork(param)
 
     def get_next_batch(self, dm, key, restart=True):
         data = dm.get_next_batch(key)
