@@ -9,29 +9,6 @@ from torch import nn
 
 from utils import Storage
 
-
-def read_raml_sample_file(file_path, n_samples):
-    raml_file = open(file_path, encoding='utf-8')
-
-    train_data = []
-    sample_num = -1
-    for line in raml_file.readlines():
-        line = line[:-1]
-        if line.startswith('***'):
-            continue
-        elif line.endswith('samples'):
-            sample_num = eval(line.split()[0])
-            assert sample_num == 1 or sample_num == n_samples
-        elif line.startswith('source:'):
-            train_data.append({'source': line[7:], 'targets': []})
-        else:
-            train_data[-1]['targets'].append(line.split('|||'))
-            if sample_num == 1:
-                for i in range(n_samples - 1):
-                    train_data[-1]['targets'].append(line.split('|||'))
-    return train_data
-
-
 def raml_loss(pred, target, sent_size, training_rewards, loss_fn):
     # TODO: check in code and paper, teacher forcing, loss on the golden target or on targets with lower reward, to make model train
     training_rewards = torch.Tensor(training_rewards)
@@ -72,12 +49,8 @@ class IWSLT14(OpenSubtitles):
 
     def read_raml_sample_file(self):
 
-        def line2id(line,go_id=True):
-            if go_id:
-                first_token = [self.go_id]
-            else:
-                first_token = []
-            return first_token + [self.word2id[token]
+        def line2id(line):
+            return [self.go_id] + [self.word2id[token]
                                    for token in line.split()][:self._max_sent_length] + [self.eos_id]
             # return ([self.go_id] +
             #         list(map(lambda word: self.word2id[word] if word in self.word2id else self.unk_id, line)) +
@@ -95,7 +68,8 @@ class IWSLT14(OpenSubtitles):
                     assert sample_num == 1 or sample_num == self.n_samples
                 elif line.startswith('source:'):
                     train_data.append(
-                        {'source_id': line2id(line[7:],go_id=False), 'targets_id': []}) # TODO: change source & delete targets
+                        {'source': line[7:], 'targets_id': []}) 
+                        # XXX: no need to convert source to ids because it is done in load_data
                 else:
                     target_line = line.split('|||')
                     token_line = line2id(target_line[0])
@@ -113,43 +87,40 @@ class IWSLT14(OpenSubtitles):
         """
 
         res = {}
-        batch_size = self.batch_size["train"] * self.n_samples
+        augmented_batch_size = self.batch_size["train"] * self.n_samples
         source_ids = []
-        source_length = []
         target_ids = []
-        target_length = []
+        res['post_length'] = post_len = np.zeros((augmented_batch_size), dtype=int)
+        res['resp_length'] = resp_len = np.zeros((augmented_batch_size), dtype=int)
         scores = []
 
-        for index in indexes:
+        for source_batch,index in enumerate(indexes):
             training_pair = self.raml_data[index]
-
-            for target,score in training_pair['targets_id']:
-                source_ids.append(training_pair['source_id'])
+            for sample_id, (target,score) in enumerate(training_pair['targets_id']):
+                # XXX: input has now <go> token, compared to before. => more coherent with eval & test 
+                post = self.data['train']['post'][index]
+                source_ids.append(post)
                 target_ids.append(target)
-                source_length.append(len(training_pair['source_id']))
-                target_length.append(len(target))
+                post_len[source_batch*self.n_samples+sample_id] = len(post)
+                resp_len[source_batch*self.n_samples+sample_id] = len(target)
                 scores.append(score)
 
-        rewards = []
-        for i in range(0, batch_size, self.n_samples):
+        res["rewards_ts"] = rewards = np.zeros((augmented_batch_size))
+        for i in range(0, augmented_batch_size, self.n_samples):
             tmp = np.array(scores[i:i + self.n_samples])
             tmp = np.exp(tmp / self.tau) / np.sum(np.exp(tmp / self.tau))
             for j in range(0, self.n_samples):
-                rewards.append(tmp[j])
+                rewards[i+j]=tmp[j]
 
-        # TODO: padding. Could do differently
-        for value in source_ids:
-            while len(value) < max(source_length):
-                value.append(self.pad_id)
-        for value in target_ids:
-            while len(value) < max(target_length):
-                value.append(self.pad_id)
+        res['post'] = res_post = np.zeros(
+            (augmented_batch_size, max(post_len)), dtype=int)
+        res['resp'] = res_resp = np.zeros(
+            (augmented_batch_size, max(resp_len)), dtype=int)
 
-        res['post'] = res_post = np.array(source_ids)
-        res['resp'] = res_resp = np.array(target_ids)
-        res['post_length'] = np.array(source_length)
-        res['resp_length'] = np.array(target_length)
-        res["rewards_ts"] = np.array(rewards)
+        for i, value in enumerate(source_ids):
+            res_post[i, :len(value)] = value
+        for i, value in enumerate(target_ids):
+            res_resp[i, :len(value)] = value
 
         # XXX: useless to def it ?
         res["post_allvocabs"] = res_post.copy()
