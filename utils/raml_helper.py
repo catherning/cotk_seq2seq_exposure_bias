@@ -52,9 +52,6 @@ class IWSLT14(OpenSubtitles):
         def line2id(line):
             return [self.go_id] + [self.word2id[token]
                                    for token in line.split()][:self._max_sent_length] + [self.eos_id]
-            # return ([self.go_id] +
-            #         list(map(lambda word: self.word2id[word] if word in self.word2id else self.unk_id, line)) +
-            #         [self.eos_id])[:self._max_sent_length]
 
         with open(self.raml_path, encoding='utf-8') as raml_file:
             train_data = []
@@ -85,7 +82,6 @@ class IWSLT14(OpenSubtitles):
         """{LanguageProcessingBase.GET_BATCH_DOC_WITHOUT_RETURNS}
             same def as get_batch(self, indexes) in SingleTurnDialog
         """
-
         res = {}
         augmented_batch_size = self.batch_size["train"] * self.n_samples
         source_ids = []
@@ -116,13 +112,10 @@ class IWSLT14(OpenSubtitles):
             (augmented_batch_size, max(post_len)), dtype=int)
         res['resp'] = res_resp = np.zeros(
             (augmented_batch_size, max(resp_len)), dtype=int)
-
         for i, value in enumerate(source_ids):
             res_post[i, :len(value)] = value
-        for i, value in enumerate(target_ids):
-            res_resp[i, :len(value)] = value
+            res_resp[i, :len(target_ids[i])] = target_ids[i]
 
-        # XXX: useless to def it ?
         res["post_allvocabs"] = res_post.copy()
         res["resp_allvocabs"] = res_resp.copy()
         res_post[res_post >= self.valid_vocab_len] = self.unk_id
