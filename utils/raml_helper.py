@@ -1,12 +1,12 @@
 import os
+
 import numpy as np
-
 import torch
-from torch import nn
-
 from cotk._utils import hooks
 from cotk._utils.file_utils import get_resource_file_path
 from cotk.dataloader import OpenSubtitles
+from torch import nn
+
 from utils import Storage
 
 
@@ -55,7 +55,7 @@ class IWSLT14(OpenSubtitles):
     @hooks.hook_dataloader
     def __init__(self, file_id, min_vocab_times=10,
                  max_sent_length=50, invalid_vocab_times=0,
-                 num_samples=10, raml_file="samples_iwslt14.txt", tau=0.4):
+                 num_samples=10, raml_file="samples_iwslt14.txt", tau=0.4, raml=True):
         self._file_id = file_id
         self._file_path = get_resource_file_path(file_id)
         self._min_vocab_times = min_vocab_times
@@ -63,11 +63,51 @@ class IWSLT14(OpenSubtitles):
         self._invalid_vocab_times = invalid_vocab_times
 
         # RAML specific
-        self.raml_data = read_raml_sample_file(
-            os.path.join(self._file_path, raml_file), num_samples)
+        self.raml_mode = raml
         self.n_samples = num_samples
         self.tau = tau
+        self.raml_path = os.path.join(self._file_path, raml_file)
         super(IWSLT14, self).__init__(file_id=file_id)
+        self.raml_data = self.read_raml_sample_file()
+
+    def read_raml_sample_file(self):
+
+        def line2id(line,go_id=True):
+            if go_id:
+                first_token = [self.go_id]
+            else:
+                first_token = []
+            return first_token + [self.word2id[token]
+                                   for token in line.split()][:self._max_sent_length] + [self.eos_id]
+            # return ([self.go_id] +
+            #         list(map(lambda word: self.word2id[word] if word in self.word2id else self.unk_id, line)) +
+            #         [self.eos_id])[:self._max_sent_length]
+
+        with open(self.raml_path, encoding='utf-8') as raml_file:
+            train_data = []
+            sample_num = -1
+            for line in raml_file.readlines():
+                line = line[:-1]
+                if line.startswith('***'):
+                    continue
+                elif line.endswith('samples'):
+                    sample_num = eval(line.split()[0])
+                    assert sample_num == 1 or sample_num == self.n_samples
+                elif line.startswith('source:'):
+                    train_data.append(
+                        {'source': line[7:], 'targets': [], 'targets_ids': []}) # TODO: change source & delete targets
+                else:
+                    target_line = line.split('|||')
+                    train_data[-1]['targets'].append([target_line[0],eval(target_line[1])])
+                    # train_data[-1]['targets_ids'].append(
+                    #     [line2id(target_line[0]), eval(target_line[1])])
+                    if sample_num == 1:
+                        for i in range(self.n_samples - 1):
+                            train_data[-1]['targets'].append(line.split('|||'))
+                            # train_data[-1]['targets_ids'].append(
+                            #     [line2id(target_line[0]), eval(target_line[1])])
+
+        return train_data
 
     def get_raml_batch(self, indexes):
         """{LanguageProcessingBase.GET_BATCH_DOC_WITHOUT_RETURNS}
@@ -112,7 +152,7 @@ class IWSLT14(OpenSubtitles):
             ids = ids + [self.eos_id]
 
             target_ids.append(ids)
-            scores.append(eval(score_str))
+            scores.append(score_str)
             target_length.append(len(ids))
 
         rewards = []
@@ -144,8 +184,8 @@ class IWSLT14(OpenSubtitles):
 
         return res
 
-    def get_next_raml_batch(self, key, ignore_left_samples=False):
-        """Get next batch. It can be called only after Initializing batches (:func:`restart`).
+    def get_next_batch(self, key, ignore_left_samples=False):
+        """"Get next batch. It can be called only after Initializing batches (:func:`restart`).
 
         Arguments:
             key (str): key name of dataset, must be contained in ``self.key_name``.
@@ -156,20 +196,22 @@ class IWSLT14(OpenSubtitles):
         Returns:
             A dict like :func:`get_batch`, or None if the epoch is end.
         """
-        # if key not in self.key_name:
-        #     raise ValueError("No set named %s." % key) # for now, raml file only for training
+        if key not in self.key_name:
+            raise ValueError("No set named %s." % key)
         if self.batch_size[key] is None:
             raise RuntimeError(
                 "Please run restart before calling this function.")
         batch_id = self.batch_id[key]
-        start, end = batch_id * self.batch_size[key], (batch_id + 1) * self.batch_size[key]
+        start, end = batch_id * \
+            self.batch_size[key], (batch_id + 1) * self.batch_size[key]
         if start >= len(self.index[key]):
             return None
         if ignore_left_samples and end > len(self.index[key]):
             return None
         index = self.index[key][start:end]
-        # TODO: only that changed. could same get_next_batch func with raml as bool param if works like that ?
-        res = self.get_raml_batch(index)
+        if key == "train" and self.raml_mode:
+            res = self.get_raml_batch(index)
+        else:
+            res = self.get_batch(key, index)
         self.batch_id[key] += 1
-
         return res
