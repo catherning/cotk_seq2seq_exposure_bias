@@ -16,8 +16,15 @@ from utils import (BaseModel, CheckpointManager, LongTensor, Storage,
 
 class Seq2seqRAML(Seq2seq):
     def __init__(self, param):
-        super().__init__(param)
+        args = param.args
         net = RAMLNetwork(param)
+        self.optimizer = optim.Adam(net.get_parameters_by_name(), lr=args.lr)
+        optimizerList = {"optimizer": self.optimizer}
+        checkpoint_manager = CheckpointManager(args.name, args.model_dir, \
+                        args.checkpoint_steps, args.checkpoint_max_to_keep, "min")
+        super(Seq2seq,self).__init__(param, net, optimizerList, checkpoint_manager)
+
+        self.create_summary()
 
     def get_next_batch(self, dm, key, restart=True):
         data = dm.get_next_batch(key)
