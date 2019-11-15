@@ -95,17 +95,15 @@ class IWSLT14(OpenSubtitles):
                     assert sample_num == 1 or sample_num == self.n_samples
                 elif line.startswith('source:'):
                     train_data.append(
-                        {'source': line[7:], 'targets': [], 'targets_ids': []}) # TODO: change source & delete targets
+                        {'source_id': line2id(line[7:],go_id=False), 'targets_id': []}) # TODO: change source & delete targets
                 else:
                     target_line = line.split('|||')
-                    train_data[-1]['targets'].append([target_line[0],eval(target_line[1])])
-                    # train_data[-1]['targets_ids'].append(
-                    #     [line2id(target_line[0]), eval(target_line[1])])
+                    token_line = line2id(target_line[0])
+                    train_data[-1]['targets_id'].append([token_line, eval(target_line[1])])
                     if sample_num == 1:
                         for i in range(self.n_samples - 1):
-                            train_data[-1]['targets'].append(line.split('|||'))
-                            # train_data[-1]['targets_ids'].append(
-                            #     [line2id(target_line[0]), eval(target_line[1])])
+                            train_data[-1]['targets_id'].append(
+                                [token_line, eval(target_line[1])])
 
         return train_data
 
@@ -116,44 +114,21 @@ class IWSLT14(OpenSubtitles):
 
         res = {}
         batch_size = self.batch_size["train"] * self.n_samples
-        source_buffer, target_buffer = [], []
-
-        for index in indexes:
-            training_pair = self.raml_data[index]
-
-            for target in training_pair['targets']:
-                source_buffer.append(training_pair['source'])
-                target_buffer.append(target)
-
         source_ids = []
         source_length = []
         target_ids = []
         target_length = []
         scores = []
 
-        trunc_len_src = self._max_sent_length
-        trunc_len_tgt = self._max_sent_length
+        for index in indexes:
+            training_pair = self.raml_data[index]
 
-        # Source sent to id
-        # TODO: can use the one in dm dataloader because already done (same index) ?
-        for sentence in source_buffer:
-            ids = [self.word2id[token]
-                   for token in sentence.split()][:trunc_len_src]
-            ids = ids + [self.eos_id]
-
-            source_ids.append(ids)
-            source_length.append(len(ids))
-
-        # Target sent to id
-        for sentence, score_str in target_buffer:
-            ids = [self.go_id]
-            ids = ids + [self.word2id[token]
-                         for token in sentence.split()][:trunc_len_tgt]
-            ids = ids + [self.eos_id]
-
-            target_ids.append(ids)
-            scores.append(score_str)
-            target_length.append(len(ids))
+            for target,score in training_pair['targets_id']:
+                source_ids.append(training_pair['source_id'])
+                target_ids.append(target)
+                source_length.append(len(training_pair['source_id']))
+                target_length.append(len(target))
+                scores.append(score)
 
         rewards = []
         for i in range(0, batch_size, self.n_samples):
