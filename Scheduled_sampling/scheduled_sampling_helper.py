@@ -1,264 +1,173 @@
+#coding: utf-8
+
+import sys
+sys.path.insert(0, "D:\\Documents\\THU\\Cotk\\cotk_seq2seq_exposure_bias")
 import math
+import numpy as np
+import torch
+from torch import nn
+from torch.nn import Parameter
+from torch.nn.modules.rnn import GRU
+from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 
-def inverse_sigmoid(args,i):
-    return args.decay_factor / (
-            args.decay_factor + math.exp(i / args.decay_factor))
+from utils import zeros, Tensor, LongTensor, cuda, gumbel_max, gumbel_max_with_mask, Storage
+from utils.gru_helper import DecoderRNN, maskedSoftmax, generateMask, F_GRUCell
 
-
-@six.add_metaclass(abc.ABCMeta)
-class Helper(object):
-    """Interface for implementing different decoding strategies in
-    :class:`RNN decoders <texar.tf.modules.RNNDecoderBase>` and
-    :class:`Transformer decoder <texar.tf.modules.TransformerDecoder>`.
-    Adapted from the `tensorflow.contrib.seq2seq` package.
-    """
-
-    @abc.abstractproperty
-    def batch_size(self):
-        """Batch size of tensor returned by `sample`.
-        Returns a scalar int32 tensor.
-        """
-        raise NotImplementedError("batch_size has not been implemented")
-
-    @abc.abstractproperty
-    def sample_ids_shape(self):
-        """Shape of tensor returned by `sample`, excluding the batch dimension.
-        Returns a `TensorShape`.
-        """
-        raise NotImplementedError("sample_ids_shape has not been implemented")
-
-    @abc.abstractproperty
-    def sample_ids_dtype(self):
-        """DType of tensor returned by `sample`.
-        Returns a DType.
-        """
-        raise NotImplementedError("sample_ids_dtype has not been implemented")
-
-    @abc.abstractmethod
-    def initialize(self, name=None):
-        """Returns `(initial_finished, initial_inputs)`."""
-        pass
-
-    @abc.abstractmethod
-    def sample(self, time, outputs, state, name=None):
-        """Returns `sample_ids`."""
-        pass
-
-    @abc.abstractmethod
-    def next_inputs(self, time, outputs, state, sample_ids, name=None):
-        """Returns `(finished, next_inputs, next_state)`."""
-        pass
+def inverse_sigmoid(decay_factor,i):
+    return decay_factor / (
+            decay_factor + math.exp(i / decay_factor))
 
 
-class TrainingHelper(Helper):
-    """A helper for use during training. Performs teacher-forcing decoding.
-    Returned sample_ids are the argmax of the RNN output logits.
-    Note that for teacher-forcing decoding, Texar's decoders provide a simpler
-    interface by specifying `decoding_strategy='train_greedy'` when calling a
-    decoder (see, e.g.,,
-    :meth:`RNN decoder <texar.tf.modules.RNNDecoderBase._build>`). In this case,
-    use of TrainingHelper is not necessary.
-    """
+class SingleAttnScheduledSamplingGRU(DecoderRNN):
+    def __init__(self, input_size, hidden_size, post_size, initpara=True, gru_input_attn=False):
+        super().__init__()
 
-    def __init__(self, inputs, sequence_length, time_major=False, name=None):
-        """Initializer.
-        Args:
-          inputs: A (structure of) input tensors.
-          sequence_length: An int32 vector tensor.
-          time_major: Python bool.  Whether the tensors in `inputs` are time major.
-            If `False` (default), they are assumed to be batch major.
-          name: Name scope for any created operations.
-        Raises:
-          ValueError: if `sequence_length` is not a 1D tensor.
-        """
-        with ops.name_scope(name, "TrainingHelper", [inputs, sequence_length]):
-            inputs = ops.convert_to_tensor(inputs, name="inputs")
-            self._inputs = inputs
-            if not time_major:
-                inputs = nest.map_structure(_transpose_batch_time, inputs)
+        self.input_size, self.hidden_size, self.post_size = \
+            input_size, hidden_size, post_size
+        self.gru_input_attn = gru_input_attn
 
-            self._input_tas = nest.map_structure(_unstack_ta, inputs)
-            self._sequence_length = ops.convert_to_tensor(
-                sequence_length, name="sequence_length")
-            if self._sequence_length.get_shape().ndims != 1:
-                raise ValueError(
-                    "Expected sequence_length to be a vector, but received shape: %s" %
-                    self._sequence_length.get_shape())
+        if self.gru_input_attn:
+            self.GRU = GRU(input_size + post_size, hidden_size, 1)
+        else:
+            self.GRU = GRU(input_size, hidden_size, 1)
 
-            self._zero_inputs = nest.map_structure(
-                lambda inp: array_ops.zeros_like(inp[0, :]), inputs)
-            self._start_inputs = self._zero_inputs
-            self._batch_size = shape_list(sequence_length)[0]
+        self.attn_query = nn.Linear(hidden_size, post_size)
 
-    @property
-    def inputs(self):
-        return self._inputs
+        if initpara:
+            self.h_init = Parameter(torch.Tensor(1, 1, hidden_size))
+            stdv = 1.0 / math.sqrt(self.hidden_size)
+            self.h_init.data.uniform_(-stdv, stdv)
 
-    @property
-    def sequence_length(self):
-        return self._sequence_length
+    def getInitialParameter(self, batch_size):
+        return self.h_init.repeat(1, batch_size, 1)
 
-    @property
-    def batch_size(self):
-        return self._batch_size
+    def forward(self, incoming, length, post, post_length, h_init=None):
+        batch_size = incoming.shape[1]
+        seqlen = incoming.shape[0]
+        if h_init is None:
+            h_init = self.getInitialParameter(batch_size)
+        else:
+            h_init = torch.unsqueeze(h_init, 0)
+        h_now = h_init[0]
+        hs = []
+        attn_weights = []
+        context = zeros(batch_size, self.post_size)
 
-    @property
-    def sample_ids_shape(self):
-        return tensor_shape.TensorShape([])
-
-    @property
-    def sample_ids_dtype(self):
-        return dtypes.int32
-
-    def initialize(self, name=None):
-        with ops.name_scope(name, "TrainingHelperInitialize"):
-            finished = math_ops.equal(0, self._sequence_length)
-            all_finished = math_ops.reduce_all(finished)
-            next_inputs = control_flow_ops.cond(
-                all_finished, lambda: self._zero_inputs,
-                lambda: nest.map_structure(lambda inp: inp.read(0), self._input_tas))
-            return (finished, next_inputs)
-
-    def sample(self, time, outputs, name=None, **unused_kwargs):
-        """Gets a sample for one step."""
-        with ops.name_scope(name, "TrainingHelperSample", [time, outputs]):
-            sample_ids = math_ops.cast(
-                math_ops.argmax(outputs, axis=-1), dtypes.int32)
-            return sample_ids
-
-    def next_inputs(self, time, outputs, state, name=None, **unused_kwargs):
-        """Gets the inputs for next step."""
-        with ops.name_scope(name, "TrainingHelperNextInputs",
-                            [time, outputs, state]):
-            next_time = time + 1
-            finished = (next_time >= self._sequence_length)
-            all_finished = math_ops.reduce_all(finished)
-
-            def read_from_ta(inp):
-                return inp.read(next_time)
-
-            next_inputs = control_flow_ops.cond(
-                all_finished, lambda: self._zero_inputs,
-                lambda: nest.map_structure(read_from_ta, self._input_tas))
-            return (finished, next_inputs, state)
-
-
-class ScheduledEmbeddingTrainingHelper(TrainingHelper):
-    """A training helper that adds scheduled sampling.
-    Returns -1s for sample_ids where no sampling took place; valid sample id
-    values elsewhere.
-    """
-
-    def __init__(self, inputs, sequence_length, embedding, sampling_probability,
-                 time_major=False, seed=None, scheduling_seed=None, name=None):
-        """Initializer.
-        Args:
-          inputs: A (structure of) input tensors.
-          sequence_length: An int32 vector tensor.
-          embedding: A callable or the `params` argument for `embedding_lookup`.
-            If a callable, it can take a vector tensor of token `ids`,
-            or take two arguments (`ids`, `times`), where `ids` is a vector
-            tensor of token ids, and `times` is a vector tensor of current
-            time steps (i.e., position ids). The latter case can be used when
-            attr:`embedding` is a combination of word embedding and position
-            embedding.
-          sampling_probability: A 0D `float32` tensor: the probability of sampling
-            categorically from the output ids instead of reading directly from the
-            inputs.
-          time_major: Python bool.  Whether the tensors in `inputs` are time major.
-            If `False` (default), they are assumed to be batch major.
-          seed: The sampling seed.
-          scheduling_seed: The schedule decision rule sampling seed.
-          name: Name scope for any created operations.
-        Raises:
-          ValueError: if `sampling_probability` is not a scalar or vector.
-        """
-        with ops.name_scope(name, "ScheduledEmbeddingSamplingWrapper",
-                            [embedding, sampling_probability]):
-            if callable(embedding):
-                self._embedding_fn = embedding
+        for i in range(seqlen):
+            if self.gru_input_attn:
+                h_now = self.cell_forward(torch.cat([incoming[i], context], last_dim=-1), h_now) \
+                    * Tensor((length > np.ones(batch_size) * i).astype(float)).unsqueeze(-1)
             else:
-                self._embedding_fn = (
-                    lambda ids: embedding_ops.embedding_lookup(embedding, ids))
+                h_now = self.cell_forward(incoming[i], h_now) \
+                    * Tensor((length > np.ones(batch_size) * i).astype(float)).unsqueeze(-1)
 
-            self._embedding_args_cnt = len(get_args(self._embedding_fn))
-            if self._embedding_args_cnt != 1 and self._embedding_args_cnt != 2:
-                raise ValueError('`embedding` should expect 1 or 2 arguments.')
+            query = self.attn_query(h_now)
+            attn_weight = maskedSoftmax((query.unsqueeze(0) * post).sum(-1), post_length)
+            context = (attn_weight.unsqueeze(-1) * post).sum(0)
 
-            self._sampling_probability = ops.convert_to_tensor(
-                sampling_probability, name="sampling_probability")
-            if self._sampling_probability.get_shape().ndims not in (0, 1):
-                raise ValueError(
-                    "sampling_probability must be either a scalar or a vector. "
-                    "saw shape: %s" % (self._sampling_probability.get_shape()))
-            self._seed = seed
-            self._scheduling_seed = scheduling_seed
-            super(ScheduledEmbeddingTrainingHelper, self).__init__(
-                inputs=inputs,
-                sequence_length=sequence_length,
-                time_major=time_major,
-                name=name)
+            hs.append(torch.cat([h_now, context], dim=-1))
+            attn_weights.append(attn_weight)
 
-    def initialize(self, name=None):
-        return super(ScheduledEmbeddingTrainingHelper, self).initialize(
-            name=name)
+        return h_now, hs, attn_weights
 
-    def sample(self, time, outputs, state, name=None):
-        """Gets a sample for one step."""
-        with ops.name_scope(name, "ScheduledEmbeddingTrainingHelperSample",
-                            [time, outputs, state]):
-            # Return -1s where we did not sample, and sample_ids elsewhere
-            select_sampler = tfpd.Bernoulli(
-                probs=self._sampling_probability, dtype=dtypes.bool)
-            select_sample = select_sampler.sample(
-                sample_shape=self.batch_size, seed=self._scheduling_seed)
-            sample_id_sampler = tfpd.Categorical(logits=outputs)
-            return array_ops.where(
-                select_sample,
-                sample_id_sampler.sample(seed=self._seed),
-                gen_array_ops.fill([self.batch_size], -1))
+        def forward(self, incoming, length, post, post_length, h_init=None):
+            batch_size = incoming.shape[1]
+            seqlen = incoming.shape[0]
+            if h_init is None:
+                h_init = self.getInitialParameter(batch_size)
+            else:
+                h_init = torch.unsqueeze(h_init, 0)
+            h_now = h_init[0]
+            hs = []
+            attn_weights = []
+            context = zeros(batch_size, self.post_size)
 
-    def next_inputs(self, time, outputs, state, sample_ids, name=None):
-        """Gets the outputs for next step."""
-        with ops.name_scope(name, "ScheduledEmbeddingTrainingHelperNextInputs",
-                            [time, outputs, state, sample_ids]):
-            (finished, base_next_inputs, state) = (
-                super(ScheduledEmbeddingTrainingHelper, self).next_inputs(
-                    time=time,
-                    outputs=outputs,
-                    state=state,
-                    sample_ids=sample_ids,
-                    name=name))
+            for i in range(seqlen):
+                if self.gru_input_attn:
+                    h_now = self.cell_forward(torch.cat([incoming[i], context], last_dim=-1), h_now) \
+                        * Tensor((length > np.ones(batch_size) * i).astype(float)).unsqueeze(-1)
+                else:
+                    h_now = self.cell_forward(incoming[i], h_now) \
+                        * Tensor((length > np.ones(batch_size) * i).astype(float)).unsqueeze(-1)
 
-            def maybe_sample():
-                """Perform scheduled sampling."""
-                where_sampling = math_ops.cast(
-                    array_ops.where(sample_ids > -1), dtypes.int32)
-                where_not_sampling = math_ops.cast(
-                    array_ops.where(sample_ids <= -1), dtypes.int32)
-                sample_ids_sampling = array_ops.gather_nd(sample_ids, where_sampling)
-                inputs_not_sampling = array_ops.gather_nd(
-                    base_next_inputs, where_not_sampling)
+                query = self.attn_query(h_now)
+                attn_weight = maskedSoftmax((query.unsqueeze(0) * post).sum(-1), post_length)
+                context = (attn_weight.unsqueeze(-1) * post).sum(0)
 
-                if self._embedding_args_cnt == 1:
-                    sampled_next_inputs = self._embedding_fn(
-                        sample_ids_sampling)
-                elif self._embedding_args_cnt == 2:
-                    # Prepare the position embedding of the next step
-                    times = tf.ones(self._batch_size,
-                                    dtype=tf.int32) * (time + 1)
-                    sampled_next_inputs = self._embedding_fn(
-                        sample_ids_sampling, times)
-                base_shape = array_ops.shape(base_next_inputs)
-                return (array_ops.scatter_nd(indices=where_sampling,
-                                             updates=sampled_next_inputs,
-                                             shape=base_shape)
-                        + array_ops.scatter_nd(indices=where_not_sampling,
-                                               updates=inputs_not_sampling,
-                                               shape=base_shape))
+                hs.append(torch.cat([h_now, context], dim=-1))
+                attn_weights.append(attn_weight)
 
-            all_finished = math_ops.reduce_all(finished)
-            next_inputs = control_flow_ops.cond(
-                all_finished, lambda: base_next_inputs, maybe_sample)
-            return (finished, next_inputs, state)
+            return h_now, hs, attn_weights
 
+    def init_forward(self, batch_size, post, post_length, h_init=None):
+        if h_init is None:
+            h_init = self.getInitialParameter(batch_size)
+        else:
+            h_init = torch.unsqueeze(h_init, 0)
+        h_now = h_init[0]
+        context = zeros(batch_size, self.post_size)
+
+        def nextStep(incoming, stopmask):
+            nonlocal h_now, post, post_length, context
+
+            if self.gru_input_attn:
+                h_now = self.cell_forward(torch.cat([incoming, context], dim=-1), h_now) \
+                    * (1 - stopmask).float().unsqueeze(-1)
+            else:
+                h_now = self.cell_forward(incoming, h_now) * (1 - stopmask).float().unsqueeze(-1)
+
+            query = self.attn_query(h_now)
+            attn_weight = maskedSoftmax((query.unsqueeze(0) * post).sum(-1), post_length)
+            context = (attn_weight.unsqueeze(-1) * post).sum(0)
+
+            return torch.cat([h_now, context], dim=-1), attn_weight
+
+        return nextStep
+
+    def init_forward_3d(self, batch_size, top_k, post, post_length, h_init=None):
+        if h_init is None:
+            h_init = self.getInitialParameter(batch_size)
+        else:
+            h_init = torch.unsqueeze(h_init, 0)
+        h_now = h_init[0].unsqueeze(1).expand(-1, top_k, -1) # batch_size * top_k * hidden_size
+        context = zeros(batch_size, self.post_size)
+
+        post = post.unsqueeze(-2)
+        #post_length = np.tile(np.expand_dims(post_length, 1), (1, top_k, 1))
+
+        def nextStep(incoming, stopmask, regroup=None):
+            nonlocal h_now, post, post_length, context
+            h_now = torch.gather(h_now, 1, regroup.unsqueeze(-1).repeat(1, 1, h_now.shape[-1]))
+
+            if self.gru_input_attn:
+                context = torch.gather(context, 1, regroup.unsqueeze(-1).repeat(1, 1, context.shape[-1]))
+                h_now = self.cell_forward(torch.cat([incoming, context], dim=-1), h_now) \
+                    * (1 - stopmask).float().unsqueeze(-1)
+            else:
+                h_now = self.cell_forward(incoming, h_now) * (1 - stopmask).float().unsqueeze(-1) # batch_size * top_k * hidden_size
+
+            query = self.attn_query(h_now) # batch_size * top_k * post_size
+
+            mask = generateMask(post.shape[0], post_length).unsqueeze(-1)
+            attn_weight = (query.unsqueeze(0) * post).sum(-1).masked_fill(mask==0, -1e9).softmax(0) # post_len * batch_size * top_k
+            context = (attn_weight.unsqueeze(-1) * post).sum(0)
+
+            return torch.cat([h_now, context], dim=-1), attn_weight
+
+        return nextStep
+
+    def cell_forward(self, incoming, h):
+        shape = h.shape
+        return F_GRUCell( \
+                incoming.reshape(-1, incoming.shape[-1]), h.reshape(-1, h.shape[-1]), \
+                self.GRU.weight_ih_l0, self.GRU.weight_hh_l0, \
+                self.GRU.bias_ih_l0, self.GRU.bias_hh_l0, \
+        ).reshape(*shape)
+
+    def freerun(self, inp, wLinearLayerCallback, mode='max', input_callback=None, no_unk=True, top_k=10):
+        nextStep = self.init_forward(inp.batch_size, inp.post, inp.post_length, inp.get("init_h", None))
+        return self._freerun(inp, nextStep, wLinearLayerCallback, mode, input_callback, no_unk, top_k=top_k)
+
+    def beamsearch(self, inp, top_k, wLinearLayerCallback, input_callback=None, no_unk=True, length_penalty=0.7):
+        nextStep = self.init_forward_3d(inp.batch_size, top_k, inp.post, inp.post_length, inp.get("init_h", None))
+        return self._beamsearch(inp, top_k, nextStep, wLinearLayerCallback, input_callback, no_unk, length_penalty)
