@@ -41,7 +41,7 @@ def main(args, load_exclude_set, restoreCallback):
     # XXX: No pretrained vectors. For machine translation with german, wouldn't work ? First try with, if doesn't work, then without
     # would need to init manually the embed layer in network
     # if wordvec_class is None:
-    # 	wordvec_class = Glove
+    #     wordvec_class = Glove
 
     def load_dataset(data_arg, wvpath, embedding_size):
         wv = wordvec_class(wvpath)
