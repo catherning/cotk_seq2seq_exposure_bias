@@ -2,9 +2,9 @@
 
 import torch
 
-from utils import Storage, flattenSequence, raml_loss
+from utils import Storage, flattenSequence
 from baselines.cotk_seq2seq_code.network import Network, GenNetwork, EmbeddingLayer, PostEncoder, ConnectLayer
-
+from raml_helper import raml_loss
 
 # pylint: disable=W0221
 

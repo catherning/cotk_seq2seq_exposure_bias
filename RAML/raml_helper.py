@@ -40,7 +40,7 @@ class IWSLT14(OpenSubtitles):
         self._invalid_vocab_times = invalid_vocab_times
         
         # RAML specific
-        # # self.raml_mode = raml
+        self.raml_mode = raml
         self.n_samples = num_samples
         self.raml_path = os.path.join(self._file_path, raml_file)
         self.tau = tau

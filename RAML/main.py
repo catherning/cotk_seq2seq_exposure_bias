@@ -6,7 +6,8 @@ import json
 from cotk.dataloader import SingleTurnDialog
 from cotk.wordvector import WordVector, Glove
 
-from utils import debug, try_cache, cuda_init, Storage, IWSLT14
+from utils import debug, try_cache, cuda_init, Storage
+from raml_helper import IWSLT14
 from seq2seq_raml import Seq2seqRAML
 
 
