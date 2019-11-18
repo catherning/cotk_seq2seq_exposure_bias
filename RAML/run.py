@@ -4,6 +4,8 @@
 def run(*argv):
     import argparse
     import time
+    import sys
+    sys.path.insert(0, "D:\\Documents\\THU\\Cotk\\cotk_seq2seq_exposure_bias")
 
     from utils import Storage
 
