@@ -24,7 +24,8 @@ class Network(BaseNetwork):
         self.embLayer.forward(incoming)
         self.postEncoder.forward(incoming)
         self.connectLayer.forward(incoming)
-        self.genNetwork.forward(incoming)
+        # TODO: change
+        self.genNetwork.new_forward(incoming)
 
         incoming.result.loss = incoming.result.word_loss
 
@@ -116,6 +117,24 @@ class GenNetwork(nn.Module):
         gen.h = self.drop(gen.h)
         gen.w = self.wLinearLayer(gen.h)
 
+    def scheduledTeacherForcing(self, inp, gen):
+        def input_callback(now):
+            return self.drop(now)
+
+        def wLinearLayerCallback(gru_h):
+            gru_h = self.drop(gru_h)
+            w = self.wLinearLayer(gru_h)
+            return w
+
+        # for now, will NOT accept beam mode
+        new_gen = self.GRULayer.new_forward(inp, wLinearLayerCallback, mode=self.args.decode_mode, input_callback=input_callback, h_init=inp.init_h)
+        gen.w = new_gen.w_o
+        gen.length = new_gen.length
+        # 3 lines below done in wLinearLayerCallback and last lines of new_forward ?
+        # gen.h = torch.stack(gen.h, dim=0)
+        # gen.h = self.drop(gen.h)
+        # gen.w = self.wLinearLayer(gen.h)
+
 
     def freerun(self, inp, gen):
         #mode: beam = beamsearch; max = choose max; sample = random_sampling; sample10 = sample from max 10
@@ -145,18 +164,39 @@ class GenNetwork(nn.Module):
             gen.w_o = new_gen.w_o
             gen.length = new_gen.length
 
-    def forward(self, incoming):
+    # def forward(self, incoming):
+    #     inp = Storage()
+    #     inp.resp_length = incoming.data.resp_length
+    #     inp.embedding = incoming.resp.embedding
+    #     inp.post = incoming.hidden.h
+    #     inp.post_length = incoming.data.post_length
+    #     inp.init_h = incoming.conn.init_h
+
+    #     incoming.gen = gen = Storage()
+    #     self.teacherForcing(inp, gen)
+
+    #     w_o_f = flattenSequence(gen.w, incoming.data.resp_length-1)
+    #     data_f = flattenSequence(incoming.data.resp[1:], incoming.data.resp_length-1)
+    #     incoming.result.word_loss = self.lossCE(w_o_f, data_f)
+    #     incoming.result.perplexity = torch.exp(incoming.result.word_loss)
+
+    def new_forward(self, incoming):
+        # TODO: call this function
         inp = Storage()
-        inp.resp_length = incoming.data.resp_length
+        inp.embLayer = incoming.resp.embLayer
         inp.embedding = incoming.resp.embedding
         inp.post = incoming.hidden.h
         inp.post_length = incoming.data.post_length
+        inp.resp_length = incoming.data.resp_length
+        inp.max_sent_length = self.args.max_sent_length
+        inp.sampling_proba = incoming.args.sampling_proba
         inp.init_h = incoming.conn.init_h
-
+        inp.dm = self.param.volatile.dm
+        inp.batch_size = incoming.data.batch_size
         incoming.gen = gen = Storage()
 
-        # TODO: not always teacherForcing anymore. But need to change from inside
-        self.teacherForcing(inp, gen)
+        # TODO: not always teacherForcing anymore. But need to change from inside, need to mix with detail_forward
+        self.scheduledTeacherForcing(inp, gen)
 
         w_o_f = flattenSequence(gen.w, incoming.data.resp_length-1)
         data_f = flattenSequence(incoming.data.resp[1:], incoming.data.resp_length-1)

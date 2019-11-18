@@ -94,6 +94,7 @@ class Seq2seq(BaseModel):
 
             if (i+1) % args.batch_num_per_gradient == 0:
                 self.zero_grad()
+            # XXX: temp new_forward function
             self.net.forward(incoming)
 
             loss = incoming.result.loss
