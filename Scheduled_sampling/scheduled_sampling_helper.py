@@ -42,37 +42,37 @@ class SingleAttnScheduledSamplingGRU(DecoderRNN):
     def getInitialParameter(self, batch_size):
         return self.h_init.repeat(1, batch_size, 1)
 
-    # def forward(self, incoming, length, post, post_length, h_init=None):
-    #     """
-    #     Original forward
-    #     """
-    #     batch_size = incoming.shape[1]
-    #     seqlen = incoming.shape[0]
-    #     if h_init is None:
-    #         h_init = self.getInitialParameter(batch_size)
-    #     else:
-    #         h_init = torch.unsqueeze(h_init, 0)
-    #     h_now = h_init[0]
-    #     hs = []
-    #     attn_weights = []
-    #     context = zeros(batch_size, self.post_size)
+    def forward(self, incoming, length, post, post_length, h_init=None):
+        """
+        Original forward
+        """
+        batch_size = incoming.shape[1]
+        seqlen = incoming.shape[0]
+        if h_init is None:
+            h_init = self.getInitialParameter(batch_size)
+        else:
+            h_init = torch.unsqueeze(h_init, 0)
+        h_now = h_init[0]
+        hs = []
+        attn_weights = []
+        context = zeros(batch_size, self.post_size)
 
-    #     for i in range(seqlen):
-    #         if self.gru_input_attn:
-    #             h_now = self.cell_forward(torch.cat([incoming[i], context], last_dim=-1), h_now) \
-    #                 * Tensor((length > np.ones(batch_size) * i).astype(float)).unsqueeze(-1)
-    #         else:
-    #             h_now = self.cell_forward(incoming[i], h_now) \
-    #                 * Tensor((length > np.ones(batch_size) * i).astype(float)).unsqueeze(-1)
+        for i in range(seqlen):
+            if self.gru_input_attn:
+                h_now = self.cell_forward(torch.cat([incoming[i], context], last_dim=-1), h_now) \
+                    * Tensor((length > np.ones(batch_size) * i).astype(float)).unsqueeze(-1)
+            else:
+                h_now = self.cell_forward(incoming[i], h_now) \
+                    * Tensor((length > np.ones(batch_size) * i).astype(float)).unsqueeze(-1)
 
-    #         query = self.attn_query(h_now)
-    #         attn_weight = maskedSoftmax((query.unsqueeze(0) * post).sum(-1), post_length)
-    #         context = (attn_weight.unsqueeze(-1) * post).sum(0)
+            query = self.attn_query(h_now)
+            attn_weight = maskedSoftmax((query.unsqueeze(0) * post).sum(-1), post_length)
+            context = (attn_weight.unsqueeze(-1) * post).sum(0)
 
-    #         hs.append(torch.cat([h_now, context], dim=-1))
-    #         attn_weights.append(attn_weight)
+            hs.append(torch.cat([h_now, context], dim=-1))
+            attn_weights.append(attn_weight)
 
-    #     return h_now, hs, attn_weights
+        return h_now, hs, attn_weights
 
     def new_forward(self, inp, wLinearLayerCallback, h_init=None, mode='max', input_callback=None, no_unk=True, top_k=10):
         """
@@ -88,20 +88,17 @@ class SingleAttnScheduledSamplingGRU(DecoderRNN):
         # TODO: do something about seqlen = incoming.shape[0] ? Genre if i ==seqlen in the main loop, then everything else si 0 ? 
         # Or should learn by itself, that's the goal of freerun!
 
-        # XXX: could give that as argument eventually
-        batch_size = inp.batch_size
-        nextStep,h_now, context = self.init_forward(inp.batch_size, inp.post, inp.post_length, inp.get("init_h", None))
+        nextStep,h_now, context = self.init_forward(inp.batch_size, inp.post, inp.post_length, h_init=inp.get("init_h", None))
 
         start_id = inp.dm.go_id if no_unk else 0
-        dm = inp.dm
-        first_emb = inp.embLayer(LongTensor([dm.go_id])).repeat(batch_size, 1)
+        first_emb = inp.embLayer(LongTensor([inp.dm.go_id])).repeat(inp.batch_size, 1)
         next_emb = first_emb
 
         gen = Storage()
         gen.w_pro = []
-        gen.w_o = []
-        gen.emb = []
-        flag = zeros(batch_size).int()
+        # gen.w_o = []
+        # gen.emb = []
+        flag = zeros(inp.batch_size).int()
         EOSmet = []
 
         # forward init => init in init_forward which is in nextStep
@@ -138,7 +135,7 @@ class SingleAttnScheduledSamplingGRU(DecoderRNN):
                     gru_h = gru_h[0]
 
                 w = wLinearLayerCallback(gru_h)
-                gen.w_pro.append(w.softmax(dim=-1))
+                gen.w_pro.append(w)#.softmax(dim=-1))
 
                 if mode == "max":
                     w = torch.argmax(w[:, start_id:], dim=1) + start_id
@@ -154,45 +151,60 @@ class SingleAttnScheduledSamplingGRU(DecoderRNN):
                     w = torch.argmax(w_onehot, dim=1) + start_id
                     next_emb = torch.sum(torch.unsqueeze(w_onehot, -1) * inp.embLayer.weight[start_id:], 1)
 
-                gen.w_o.append(w)
-                gen.emb.append(next_emb)
+                # gen.w_o.append(w)
+                # gen.emb.append(next_emb)
             
             # Teacher forcing at this step
             else:
-                now = inp.embedding
+                # take min with shape of embed because embedding doesn't have shape max_sent_length, we didn't pad it
+                now = inp.embedding[min(i,inp.embedding.shape[0]-1)]
                 # TODO: check, it was done in function above in teacher forcing, so as if done for all steps at once ?
                 if input_callback and first_time:
                     now = input_callback(now)
                     first_time = False
-                now = now[i]
 
                 if self.gru_input_attn:
                     h_now = self.cell_forward(torch.cat([now, context], last_dim=-1), h_now) \
-                    * Tensor((length > np.ones(batch_size) * i).astype(float)).unsqueeze(-1)
+                    * Tensor((length > np.ones(inp.batch_size) * i).astype(float)).unsqueeze(-1)
                 else:
                     h_now = self.cell_forward(now, h_now) \
-                        * Tensor((length > np.ones(batch_size) * i).astype(float)).unsqueeze(-1)
+                        * Tensor((length > np.ones(inp.batch_size) * i).astype(float)).unsqueeze(-1)
 
                 query = self.attn_query(h_now)
                 attn_weight = maskedSoftmax((query.unsqueeze(0) * inp.post).sum(-1), inp.post_length)
                 context = (attn_weight.unsqueeze(-1) * inp.post).sum(0)
 
                 w = wLinearLayerCallback(torch.cat([h_now, context], dim=-1))
-                gen.w_o.append(w)
-                # Randomly took this def from max sampling. TODO: check if ok
-                next_emb = inp.embLayer(w) # w is NOT correct
+                gen.w_pro.append(w)
 
+                if mode == "max":
+                    w = torch.argmax(w[:, start_id:], dim=1) + start_id
+                    next_emb = inp.embLayer(w)
+                elif mode == "gumbel" or mode == "sample":
+                    w_onehot = gumbel_max(w[:, start_id:])
+                    w = torch.argmax(w_onehot, dim=1) + start_id
+                    next_emb = torch.sum(torch.unsqueeze(w_onehot, -1) * inp.embLayer.weight[start_id:], 1)
+                elif mode == "samplek":
+                    _, index = w[:, start_id:].topk(top_k, dim=-1, largest=True, sorted=True) # batch_size, top_k
+                    mask = torch.zeros_like(w[:, start_id:]).scatter_(-1, index, 1.0)
+                    w_onehot = gumbel_max_with_mask(w[:, start_id:], mask)
+                    w = torch.argmax(w_onehot, dim=1) + start_id
+                    next_emb = torch.sum(torch.unsqueeze(w_onehot, -1) * inp.embLayer.weight[start_id:], 1)
+
+                # gen.w_o.append(w)
+                # gen.emb.append(next_emb)
                 # attn_weights.append(attn_weight) # XXX: need it ?
 
-                # TODO: recheck where to put that: in or out of the if proba ?
-                EOSmet.append(flag)
-                flag = flag | (w == dm.eos_id).int()
-                if torch.sum(flag).detach().cpu().numpy() == batch_size:
-                    break
-
+            # TODO: recheck where to put that: in or out of the if proba ?
+            EOSmet.append(flag)
+            flag = flag | (w == inp.dm.eos_id).int()
+            if torch.sum(flag).detach().cpu().numpy() == inp.batch_size:
+                break
+        
         EOSmet = 1-torch.stack(EOSmet)
-        gen.w_o = torch.stack(gen.w_o) * EOSmet.long()
-        gen.emb = torch.stack(gen.emb) * EOSmet.float().unsqueeze(-1)
+        gen.w_pro = torch.stack(gen.w_pro, dim=0)
+        # gen.w_o = torch.stack(gen.w_o) * EOSmet.long()
+        # gen.emb = torch.stack(gen.emb) * EOSmet.float().unsqueeze(-1)
         gen.length = torch.sum(EOSmet, 0).detach().cpu().numpy()
 
         return gen
