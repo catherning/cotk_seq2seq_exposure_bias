@@ -24,7 +24,7 @@ class Network(BaseNetwork):
         self.embLayer.forward(incoming)
         self.postEncoder.forward(incoming)
         self.connectLayer.forward(incoming)
-        # XXX: temp new_forward function
+        # TODO: temp new_forward function
         self.genNetwork.new_forward(incoming)
 
         incoming.result.loss = incoming.result.word_loss

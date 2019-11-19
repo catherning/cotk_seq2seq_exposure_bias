@@ -83,11 +83,6 @@ class SingleAttnScheduledSamplingGRU(DecoderRNN):
 
         output: w_o emb length"""
 
-        # TODO: check for teacher forcing, the resp is of size max(lengths) or max_length = seqlength= 50 ? 
-        # because if y_(t-1) index out of range if above max(lengths) for a certain batch
-        # TODO: do something about seqlen = incoming.shape[0] ? Genre if i ==seqlen in the main loop, then everything else si 0 ? 
-        # Or should learn by itself, that's the goal of freerun!
-
         nextStep,h_now, context = self.init_forward(inp.batch_size, inp.post, inp.post_length, h_init=inp.get("init_h", None))
 
         start_id = inp.dm.go_id if no_unk else 0
@@ -96,31 +91,12 @@ class SingleAttnScheduledSamplingGRU(DecoderRNN):
 
         gen = Storage()
         gen.w_pro = []
-        # gen.w_o = []
-        # gen.emb = []
         flag = zeros(inp.batch_size).int()
         EOSmet = []
-
-        # forward init => init in init_forward which is in nextStep
-        # if h_init is None:
-        #     h_init = self.getInitialParameter(batch_size)
-        # else:
-        #     h_init = torch.unsqueeze(h_init, 0)
-        # h_now = h_init[0]
-        # context = zeros(batch_size, self.post_size)
-
-        # these useless because hs needed when didn't use wLinearLayerCallback, attn_weights not used ?
-        # hs = []
-        # attn_weights = []
         length = inp.resp_length -1
-
-        # TODO: we use input_callback only once at the beginning for teacher forcing, but each time when freerun.
-        # => do it once only if first step is teacher forcing and then each time when freerun, 
-        # otherwise, for the other teacher forcing steps, we don't do it
         first_time = True
 
         for i in range(inp.max_sent_length):
-            
             proba = random()
             
             # Sampling
@@ -150,14 +126,15 @@ class SingleAttnScheduledSamplingGRU(DecoderRNN):
                     w_onehot = gumbel_max_with_mask(w[:, start_id:], mask)
                     w = torch.argmax(w_onehot, dim=1) + start_id
                     next_emb = torch.sum(torch.unsqueeze(w_onehot, -1) * inp.embLayer.weight[start_id:], 1)
-
-                # gen.w_o.append(w)
-                # gen.emb.append(next_emb)
             
             # Teacher forcing at this step
             else:
                 # take min with shape of embed because embedding doesn't have shape max_sent_length, we didn't pad it
-                now = inp.embedding[min(i,inp.embedding.shape[0]-1)]
+                try:
+                    now = inp.embedding[i]
+                except IndexError:
+                    now = inp.embLayer(LongTensor([inp.dm.pad_id])).repeat(inp.batch_size, 1)
+
                 # TODO: check, it was done in function above in teacher forcing, so as if done for all steps at once ?
                 if input_callback and first_time:
                     now = input_callback(now)
@@ -191,20 +168,17 @@ class SingleAttnScheduledSamplingGRU(DecoderRNN):
                     w = torch.argmax(w_onehot, dim=1) + start_id
                     next_emb = torch.sum(torch.unsqueeze(w_onehot, -1) * inp.embLayer.weight[start_id:], 1)
 
-                # gen.w_o.append(w)
-                # gen.emb.append(next_emb)
-                # attn_weights.append(attn_weight) # XXX: need it ?
-
-            # TODO: recheck where to put that: in or out of the if proba ?
             EOSmet.append(flag)
             flag = flag | (w == inp.dm.eos_id).int()
-            if torch.sum(flag).detach().cpu().numpy() == inp.batch_size:
+            # The second condition forces the generation (of pad/eos tokens ?) until the generated sentences have a length above resp length
+            # In order to be able to calculate the loss
+            # We know the following tokens are pad/eos, but we wouldn't know the proba
+            if torch.sum(flag).detach().cpu().numpy() == inp.batch_size and i>inp.embedding.shape[0]:
                 break
         
         EOSmet = 1-torch.stack(EOSmet)
         gen.w_pro = torch.stack(gen.w_pro, dim=0)
-        # gen.w_o = torch.stack(gen.w_o) * EOSmet.long()
-        # gen.emb = torch.stack(gen.emb) * EOSmet.float().unsqueeze(-1)
+
         gen.length = torch.sum(EOSmet, 0).detach().cpu().numpy()
 
         return gen

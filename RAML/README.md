@@ -9,6 +9,9 @@ Seq2seq with attention mechanism is a basic model for single turn dialog. In add
 
 You can refer to the following paper for details:
 
+# TODO:
+- if i have bad output, check https://stackoverflow.com/questions/50662896/tensorflow-seq2seq-chatbot-always-give-the-same-outputs
+
 ## Require Packages
 
 * **python3**
