@@ -58,7 +58,6 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
 
         gen = Storage()
         gen.w_pro = []
-        # gen.w_o = []
         flag = zeros(inp.batch_size).int()
         EOSmet = []
         length = inp.resp_length -1
@@ -78,22 +77,6 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
                 if isinstance(gru_h, tuple):
                     gru_h = gru_h[0]
 
-                w = wLinearLayerCallback(gru_h)
-                gen.w_pro.append(w)#.softmax(dim=-1))
-
-                if mode == "max":
-                    w = torch.argmax(w[:, start_id:], dim=1) + start_id
-                    next_emb = inp.embLayer(w)
-                elif mode == "gumbel" or mode == "sample":
-                    w_onehot = gumbel_max(w[:, start_id:])
-                    w = torch.argmax(w_onehot, dim=1) + start_id
-                    next_emb = torch.sum(torch.unsqueeze(w_onehot, -1) * inp.embLayer.weight[start_id:], 1)
-                elif mode == "samplek":
-                    _, index = w[:, start_id:].topk(top_k, dim=-1, largest=True, sorted=True) # batch_size, top_k
-                    mask = torch.zeros_like(w[:, start_id:]).scatter_(-1, index, 1.0)
-                    w_onehot = gumbel_max_with_mask(w[:, start_id:], mask)
-                    w = torch.argmax(w_onehot, dim=1) + start_id
-                    next_emb = torch.sum(torch.unsqueeze(w_onehot, -1) * inp.embLayer.weight[start_id:], 1)
             
             # Teacher forcing at this step
             else:
@@ -120,24 +103,23 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
                 attn_weight = maskedSoftmax((query.unsqueeze(0) * inp.post).sum(-1), inp.post_length)
                 context = (attn_weight.unsqueeze(-1) * inp.post).sum(0)
 
-                w = wLinearLayerCallback(torch.cat([h_now, context], dim=-1))
-                gen.w_pro.append(w)
+            w = wLinearLayerCallback(torch.cat([h_now, context], dim=-1))
+            gen.w_pro.append(w)#.softmax(dim=-1))
 
-                if mode == "max":
-                    w = torch.argmax(w[:, start_id:], dim=1) + start_id
-                    next_emb = inp.embLayer(w)
-                elif mode == "gumbel" or mode == "sample":
-                    w_onehot = gumbel_max(w[:, start_id:])
-                    w = torch.argmax(w_onehot, dim=1) + start_id
-                    next_emb = torch.sum(torch.unsqueeze(w_onehot, -1) * inp.embLayer.weight[start_id:], 1)
-                elif mode == "samplek":
-                    _, index = w[:, start_id:].topk(top_k, dim=-1, largest=True, sorted=True) # batch_size, top_k
-                    mask = torch.zeros_like(w[:, start_id:]).scatter_(-1, index, 1.0)
-                    w_onehot = gumbel_max_with_mask(w[:, start_id:], mask)
-                    w = torch.argmax(w_onehot, dim=1) + start_id
-                    next_emb = torch.sum(torch.unsqueeze(w_onehot, -1) * inp.embLayer.weight[start_id:], 1)
+            if mode == "max":
+                w = torch.argmax(w[:, start_id:], dim=1) + start_id
+                next_emb = inp.embLayer(w)
+            elif mode == "gumbel" or mode == "sample":
+                w_onehot = gumbel_max(w[:, start_id:])
+                w = torch.argmax(w_onehot, dim=1) + start_id
+                next_emb = torch.sum(torch.unsqueeze(w_onehot, -1) * inp.embLayer.weight[start_id:], 1)
+            elif mode == "samplek":
+                _, index = w[:, start_id:].topk(top_k, dim=-1, largest=True, sorted=True) # batch_size, top_k
+                mask = torch.zeros_like(w[:, start_id:]).scatter_(-1, index, 1.0)
+                w_onehot = gumbel_max_with_mask(w[:, start_id:], mask)
+                w = torch.argmax(w_onehot, dim=1) + start_id
+                next_emb = torch.sum(torch.unsqueeze(w_onehot, -1) * inp.embLayer.weight[start_id:], 1)
 
-            # gen.w_o.append(w)
             EOSmet.append(flag)
             flag = flag | (w == inp.dm.eos_id).int()
             # The second condition forces the generation (of pad/eos tokens ?) until the generated sentences have a length above resp length
@@ -148,7 +130,6 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
         
         EOSmet = 1-torch.stack(EOSmet)
         gen.w_pro = torch.stack(gen.w_pro, dim=0)
-        # gen.w_o = torch.stack(gen.w_o) * EOSmet.long()
         gen.length = torch.sum(EOSmet, 0).detach().cpu().numpy()
 
         return gen
