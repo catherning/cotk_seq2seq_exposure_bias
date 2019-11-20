@@ -1,18 +1,19 @@
 # coding:utf-8
 import logging
-import time
 import os
+import time
 
-import torch
-from torch import nn, optim
 import numpy as np
+import torch
 import tqdm
+from torch import nn, optim
 
-from utils import Storage, cuda, BaseModel, SummaryHelper, get_mean, storage_to_list, \
-    CheckpointManager, LongTensor
-from Scheduled_sampling.scheduled_sampling_helper import inverse_sigmoid
-from network import ScheduledSamplingNetwork
 from baselines.cotk_seq2seq_code.seq2seq import Seq2seq
+from network import ScheduledSamplingNetwork
+from Scheduled_sampling.scheduled_sampling_helper import inverse_sigmoid
+from utils import (BaseModel, CheckpointManager, LongTensor, Storage,
+                   SummaryHelper, cuda, get_mean, storage_to_list)
+
 
 class ScheduledSamplingSeq2seq(Seq2seq):
     def __init__(self, param):
@@ -20,9 +21,10 @@ class ScheduledSamplingSeq2seq(Seq2seq):
         net = ScheduledSamplingNetwork(param)
         self.optimizer = optim.Adam(net.get_parameters_by_name(), lr=args.lr)
         optimizerList = {"optimizer": self.optimizer}
-        checkpoint_manager = CheckpointManager(args.name, args.model_dir, \
-                        args.checkpoint_steps, args.checkpoint_max_to_keep, "min")
-        super(Seq2seq,self).__init__(param, net, optimizerList, checkpoint_manager)
+        checkpoint_manager = CheckpointManager(args.name, args.model_dir,
+                                               args.checkpoint_steps, args.checkpoint_max_to_keep, "min")
+        super(Seq2seq, self).__init__(
+            param, net, optimizerList, checkpoint_manager)
 
         self.create_summary()
 
@@ -35,7 +37,8 @@ class ScheduledSamplingSeq2seq(Seq2seq):
             self.now_batch += 1
             incoming = self.get_next_batch(dm, datakey)
             incoming.args = Storage()
-            incoming.args.sampling_proba = 1. - inverse_sigmoid(args.decay_factor,total_step_counter)
+            incoming.args.sampling_proba = 1. - \
+                inverse_sigmoid(args.decay_factor, total_step_counter)
 
             if (i+1) % args.batch_num_per_gradient == 0:
                 self.zero_grad()
@@ -43,7 +46,8 @@ class ScheduledSamplingSeq2seq(Seq2seq):
 
             loss = incoming.result.loss
             self.trainSummary(self.now_batch, storage_to_list(incoming.result))
-            logging.info("batch %d : gen loss=%f", self.now_batch, loss.detach().cpu().numpy())
+            logging.info("batch %d : gen loss=%f", self.now_batch,
+                         loss.detach().cpu().numpy())
 
             loss.backward()
 
@@ -52,9 +56,8 @@ class ScheduledSamplingSeq2seq(Seq2seq):
                 self.optimizer.step()
 
             total_step_counter += 1
-        
-        return total_step_counter
 
+        return total_step_counter
 
     def train_process(self):
         args = self.param.args
@@ -67,23 +70,23 @@ class ScheduledSamplingSeq2seq(Seq2seq):
 
             dm.restart('train', args.batch_size)
             self.net.train()
-            total_step_counter = self.train(args.batch_per_epoch, total_step_counter)
-            cur_sampling_proba = 1. - inverse_sigmoid(args.decay_factor,total_step_counter)
+            total_step_counter = self.train(
+                args.batch_per_epoch, total_step_counter)
+            cur_sampling_proba = 1. - \
+                inverse_sigmoid(args.decay_factor, total_step_counter)
 
             self.net.eval()
-            devloss_detail = self.evaluate("dev",cur_sampling_proba)
+            devloss_detail = self.evaluate("dev", cur_sampling_proba)
             self.devSummary(self.now_batch, devloss_detail)
             logging.info("epoch %d, evaluate dev", self.now_epoch)
 
-            testloss_detail = self.evaluate("test",cur_sampling_proba)
+            testloss_detail = self.evaluate("test", cur_sampling_proba)
             self.testSummary(self.now_batch, testloss_detail)
             logging.info("epoch %d, evaluate test", self.now_epoch)
 
             self.save_checkpoint(value=devloss_detail.loss.tolist())
-        
-        return cur_sampling_proba
 
-        
+        return cur_sampling_proba
 
     def evaluate(self, key, sampling_proba):
         args = self.param.args
@@ -112,10 +115,10 @@ class ScheduledSamplingSeq2seq(Seq2seq):
                 self.net.detail_forward(incoming)
             detail_arr["show_str%d" % i] = incoming.result.show_str
 
-        detail_arr.update({key:get_mean(result_arr, key) for key in result_arr[0]})
+        detail_arr.update({key: get_mean(result_arr, key)
+                           for key in result_arr[0]})
         detail_arr.perplexity_avg_on_batch = np.exp(detail_arr.word_loss)
         return detail_arr
-
 
     def test(self, key):
         args = self.param.args
@@ -129,7 +132,8 @@ class ScheduledSamplingSeq2seq(Seq2seq):
             incoming.args.sampling_proba = 1.
             with torch.no_grad():
                 self.net.forward(incoming)
-                gen_log_prob = nn.functional.log_softmax(incoming.gen.w_pro, -1)
+                gen_log_prob = nn.functional.log_softmax(
+                    incoming.gen.w_pro, -1)
             data = incoming.data
             data.resp_allvocabs = LongTensor(incoming.data.resp_allvocabs)
             data.resp_length = incoming.data.resp_length
