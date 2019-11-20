@@ -24,6 +24,8 @@ class ScheduledSamplingGenNetwork(GenNetwork):
 
         self.GRULayer = SingleAttnScheduledSamplingGRU(args.embedding_size, args.dh_size, args.eh_size * 2, initpara=False)
 
+    # TODO: create sampling proba def or attribute that get updated, so that i don't recreate test & eval functions in seq2seq ?
+
     def scheduledTeacherForcing(self, inp, gen):
         def input_callback(now):
             return self.drop(now)
@@ -41,20 +43,24 @@ class ScheduledSamplingGenNetwork(GenNetwork):
     def forward(self, incoming):
         # TODO: call this function
         inp = Storage()
-        inp.embLayer = incoming.resp.embLayer
         inp.embedding = incoming.resp.embedding
         inp.post = incoming.hidden.h
         inp.post_length = incoming.data.post_length
         inp.resp_length = incoming.data.resp_length
+        incoming.gen = gen = Storage()
+        inp.init_h = incoming.conn.init_h
+        
+        # if self.training:
+        inp.embLayer = incoming.resp.embLayer
         inp.max_sent_length = self.args.max_sent_length
         inp.sampling_proba = incoming.args.sampling_proba
-        inp.init_h = incoming.conn.init_h
         inp.dm = self.param.volatile.dm
         inp.batch_size = incoming.data.batch_size
-        incoming.gen = gen = Storage()
 
-        # TODO: not always teacherForcing anymore. But need to change from inside, need to mix with detail_forward
         self.scheduledTeacherForcing(inp, gen)
+    
+        # else:
+        #     self.teacherForcing(inp, gen)
 
         w_o_f = flattenSequence(gen.w_pro, incoming.data.resp_length-1)
         data_f = flattenSequence(incoming.data.resp[1:], incoming.data.resp_length-1)
