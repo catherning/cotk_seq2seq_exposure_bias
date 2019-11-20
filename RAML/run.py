@@ -129,7 +129,7 @@ def run(*argv):
     args.tau = cargs.tau
 
     args.lr = cargs.lr
-    args.batch_size = 6 * args.n_samples
+    args.batch_size = 3 * args.n_samples
     args.batch_num_per_gradient = 4
     args.grad_clip = 5
     args.show_sample = [0]  # show which batch when evaluating at tensorboard

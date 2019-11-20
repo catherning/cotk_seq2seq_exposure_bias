@@ -89,8 +89,6 @@ class IWSLT14(OpenSubtitles):
         augmented_batch_size = self.batch_size["train"] * self.n_samples
         source_ids = []
         target_ids = []
-        res['post_length'] = post_len = np.zeros((augmented_batch_size), dtype=int)
-        res['resp_length'] = resp_len = np.zeros((augmented_batch_size), dtype=int)
         scores = []
         res['post_length'] = post_len = np.zeros((augmented_batch_size), dtype=int)
         res['resp_length'] = resp_len = np.zeros((augmented_batch_size), dtype=int)
