@@ -50,7 +50,7 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
         # TODO: clean code, adapt nextStep function so that it can be used in teacher forcing?
         # simplifies the sampling mode conditions (repetitive code in sampling & teacher forcing modes)
 
-        nextStep,h_now, context = self.init_forward(inp.batch_size, inp.post, inp.post_length, h_init=inp.get("init_h", None))
+        nextStep,h_now, context = self.init_forward_all(inp.batch_size, inp.post, inp.post_length, h_init=inp.get("init_h", None))
 
         start_id = inp.dm.go_id if no_unk else 0
         first_emb = inp.embLayer(LongTensor([inp.dm.go_id])).repeat(inp.batch_size, 1)
@@ -58,6 +58,7 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
 
         gen = Storage()
         gen.w_pro = []
+        # gen.w_o = []
         flag = zeros(inp.batch_size).int()
         EOSmet = []
         length = inp.resp_length -1
@@ -136,6 +137,7 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
                     w = torch.argmax(w_onehot, dim=1) + start_id
                     next_emb = torch.sum(torch.unsqueeze(w_onehot, -1) * inp.embLayer.weight[start_id:], 1)
 
+            # gen.w_o.append(w)
             EOSmet.append(flag)
             flag = flag | (w == inp.dm.eos_id).int()
             # The second condition forces the generation (of pad/eos tokens ?) until the generated sentences have a length above resp length
@@ -146,13 +148,13 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
         
         EOSmet = 1-torch.stack(EOSmet)
         gen.w_pro = torch.stack(gen.w_pro, dim=0)
-
+        # gen.w_o = torch.stack(gen.w_o) * EOSmet.long()
         gen.length = torch.sum(EOSmet, 0).detach().cpu().numpy()
 
         return gen
 
 
-    def init_forward(self, batch_size, post, post_length, h_init=None):
+    def init_forward_all(self, batch_size, post, post_length, h_init=None):
         if h_init is None:
             h_init = self.getInitialParameter(batch_size)
         else:

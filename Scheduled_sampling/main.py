@@ -51,9 +51,9 @@ def main(args, load_exclude_set, restoreCallback):
 
     model = ScheduledSamplingSeq2seq(param)
     if args.mode == "train":
-        sampling_proba = model.train_process()
+        model.train_process()
     elif args.mode == "test":
-        test_res = model.test_process(sampling_proba)
+        model.test_process()
 
         json.dump(test_res, open("./result.json", "w"))
     else:

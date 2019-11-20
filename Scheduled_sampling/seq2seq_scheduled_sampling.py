@@ -117,7 +117,7 @@ class ScheduledSamplingSeq2seq(Seq2seq):
         return detail_arr
 
 
-    def test(self, key, sampling_proba):
+    def test(self, key):
         args = self.param.args
         dm = self.param.volatile.dm
 
@@ -126,10 +126,10 @@ class ScheduledSamplingSeq2seq(Seq2seq):
         logging.info("eval teacher-forcing")
         for incoming in tqdm.tqdm(batches, total=batch_num):
             incoming.args = Storage()
-            incoming.args.sampling_proba = sampling_proba
+            incoming.args.sampling_proba = 1.
             with torch.no_grad():
                 self.net.forward(incoming)
-                gen_log_prob = nn.functional.log_softmax(incoming.gen.w, -1)
+                gen_log_prob = nn.functional.log_softmax(incoming.gen.w_pro, -1)
             data = incoming.data
             data.resp_allvocabs = LongTensor(incoming.data.resp_allvocabs)
             data.resp_length = incoming.data.resp_length
@@ -167,10 +167,10 @@ class ScheduledSamplingSeq2seq(Seq2seq):
         logging.info("result output to %s.", filename)
         return {key: val for key, val in res.items() if isinstance(val, (str, int, float))}
 
-    def test_process(self, sampling_proba):
+    def test_process(self):
         logging.info("Test Start.")
         self.net.eval()
-        self.test("dev", sampling_proba)
+        self.test("dev")
         test_res = self.test("test")
         logging.info("Test Finish.")
         return test_res
