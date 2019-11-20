@@ -4,6 +4,8 @@ def run(*argv):
     import argparse
     import time
 
+    import sys
+    sys.path.insert(0, "D:\\Documents\\THU\\Cotk\\cotk_seq2seq_exposure_bias")
     from utils import Storage
 
     parser = argparse.ArgumentParser(description='A seq2seq model with GRU encoder and decoder. Attention, beamsearch,\
@@ -109,7 +111,7 @@ def run(*argv):
     args.batchnorm = cargs.batchnorm
 
     args.lr = cargs.lr
-    args.batch_size = 64
+    args.batch_size = 16#64
     args.batch_num_per_gradient = 4
     args.grad_clip = 5
     args.show_sample = [0]  # show which batch when evaluating at tensorboard
