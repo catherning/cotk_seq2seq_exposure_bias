@@ -20,25 +20,6 @@ def inverse_sigmoid(decay_factor,i):
 
 
 class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
-    # def __init__(self, input_size, hidden_size, post_size, initpara=True, gru_input_attn=False):
-    #     super().__init__()
-
-    #     self.input_size, self.hidden_size, self.post_size = \
-    #         input_size, hidden_size, post_size
-    #     self.gru_input_attn = gru_input_attn
-
-    #     if self.gru_input_attn:
-    #         self.GRU = GRU(input_size + post_size, hidden_size, 1)
-    #     else:
-    #         self.GRU = GRU(input_size, hidden_size, 1)
-
-    #     self.attn_query = nn.Linear(hidden_size, post_size)
-
-    #     if initpara:
-    #         self.h_init = Parameter(torch.Tensor(1, 1, hidden_size))
-    #         stdv = 1.0 / math.sqrt(self.hidden_size)
-    #         self.h_init.data.uniform_(-stdv, stdv)
-
     def forward(self, inp, wLinearLayerCallback, h_init=None, mode='max', input_callback=None, no_unk=True, top_k=10):
         """
         inp contains: batch_size, dm, embLayer, max_sent_length, [init_h]
@@ -104,7 +85,7 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
                 context = (attn_weight.unsqueeze(-1) * inp.post).sum(0)
 
             w = wLinearLayerCallback(torch.cat([h_now, context], dim=-1))
-            gen.w_pro.append(w)#.softmax(dim=-1))
+            gen.w_pro.append(w)
 
             if mode == "max":
                 w = torch.argmax(w[:, start_id:], dim=1) + start_id

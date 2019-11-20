@@ -105,7 +105,6 @@ class IWSLT14(OpenSubtitles):
                 resp_len[source_batch*self.n_samples+sample_id] = len(target)
                 scores.append(score)
 
-        res["rewards_ts"] = rewards = np.zeros((augmented_batch_size))
         for i in range(0, augmented_batch_size, self.n_samples):
             tmp = np.array(scores[i:i + self.n_samples])
             tmp = np.exp(tmp / self.tau) / np.sum(np.exp(tmp / self.tau))
