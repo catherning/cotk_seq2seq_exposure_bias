@@ -12,10 +12,10 @@ from raml_helper import raml_loss
 class RAMLNetwork(Network):
     def __init__(self, param):
         super().__init__(param)
-        self.genNetwork = GenRAMLNetwork(param)
+        self.genNetwork = RAMLGenNetwork(param)
 
 
-class GenRAMLNetwork(GenNetwork):
+class RAMLGenNetwork(GenNetwork):
 
     def forward(self, incoming):
         inp = Storage()
