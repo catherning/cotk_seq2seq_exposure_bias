@@ -18,11 +18,16 @@ from utils import (LongTensor, Storage, Tensor, cuda, gumbel_max,
 from utils.gru_helper import (DecoderRNN, F_GRUCell, SingleAttnGRU,
                               generateMask, maskedSoftmax)
 
-
-
-def inverse_sigmoid(decay_factor, i):
+# TODO: create a class and another function to choose which decay ?
+def inverse_sigmoid_decay(decay_factor, i):
     return decay_factor / (
         decay_factor + math.exp(i / decay_factor))
+
+def linear_decay(epsilon,offset,slope,i):
+    return max(epsilon,offset-slope*i)
+
+def exponential_decay(decay_factor,i):
+    return pow(decay_factor,i)
 
 
 class SingleAttnScheduledSamplingGRU(SingleAttnGRU):

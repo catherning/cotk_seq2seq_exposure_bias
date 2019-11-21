@@ -2,6 +2,7 @@
 import logging
 import time
 import os
+import codecs
 
 import torch
 from torch import nn, optim
@@ -192,7 +193,7 @@ class Seq2seq(BaseModel):
             os.makedirs(args.out_dir)
         filename = args.out_dir + "/%s_%s.txt" % (args.name, key)
 
-        with open(filename, 'w') as f:
+        with codecs.open(filename, 'w',encoding='utf8') as f:
             logging.info("%s Test Result:", key)
             for key, value in res.items():
                 if isinstance(value, float) or isinstance(value, str):
