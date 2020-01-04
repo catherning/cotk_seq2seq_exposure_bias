@@ -9,13 +9,13 @@ import tqdm
 from torch import nn, optim
 
 from baseline.seq2seq import Seq2seq
-from network import ScheduledSamplingNetwork
-from scheduled_sampling_helper import inverse_sigmoid_decay,linear_decay,exponential_decay
+from .network_ss import ScheduledSamplingNetwork
+from utils.scheduled_sampling_helper import inverse_sigmoid_decay,linear_decay,exponential_decay
 from utils import (BaseModel, CheckpointManager, LongTensor, Storage,
                    SummaryHelper, cuda, get_mean, storage_to_list)
 
 
-class ScheduledSamplingSeq2seq(Seq2seq):
+class Seq2seqSS(Seq2seq):
     def __init__(self, param):
         args = param.args
         net = ScheduledSamplingNetwork(param)

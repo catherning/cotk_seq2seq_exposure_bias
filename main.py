@@ -7,9 +7,20 @@ from cotk.dataloader import SingleTurnDialog
 from cotk.wordvector import WordVector, Glove
 
 from utils import debug, try_cache, cuda_init, Storage
-from raml_helper import IWSLT14
-from seq2seq_raml import Seq2seqRAML
 
+
+# Basic Seq2seq
+from baseline.seq2seq import Seq2seq
+
+# RAML
+from utils.raml_helper import IWSLT14
+from RAML.seq2seq_raml import Seq2seqRAML
+
+# Scheduled sampling
+from Scheduled_sampling.seq2seq_scheduled_sampling import Seq2seqSS
+
+# Policy Gradient
+from Policy_gradient.seq2seq_pg import Seq2seqPG
 
 def main(args, load_exclude_set, restoreCallback):
     logging.basicConfig(
@@ -33,15 +44,13 @@ def main(args, load_exclude_set, restoreCallback):
     data_arg.file_id = args.datapath
 
     # RAML parameters
-    data_arg.num_samples = 10 or args.n_samples
-    data_arg.raml_file = "samples_iwslt14.txt"
-    data_arg.tau = 0.4
+    if args.model=="raml":
+        data_arg.raml_file = "samples_iwslt14.txt"
+        data_arg.num_samples = 10 or args.n_samples
+        data_arg.tau = 0.4
+
     wordvec_class = WordVector.load_class(args.wvclass)
 
-    # XXX: No pretrained vectors. For machine translation with german, wouldn't work ? First try with, if doesn't work, then without
-    # would need to init manually the embed layer in network
-    # if wordvec_class is None:
-    #     wordvec_class = Glove
 
     def load_dataset(data_arg, wvpath, embedding_size):
         wv = wordvec_class(wvpath)
@@ -60,7 +69,15 @@ def main(args, load_exclude_set, restoreCallback):
     param.args = args
     param.volatile = volatile
 
-    model = Seq2seqRAML(param)
+    if args.model=="basic":
+        model = Seq2seq(param)
+    elif args.model=="raml":
+        model = Seq2seqRAML(param)
+    elif args.model=="scheduled-sampling":
+        model = Seq2seqSS(param)
+    elif args.model=="policy-gradient":
+        model = Seq2seqPG(param)
+    
     if args.mode == "train":
         model.train_process()
     elif args.mode == "test":

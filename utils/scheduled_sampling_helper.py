@@ -11,8 +11,6 @@ from torch.nn import Parameter
 from torch.nn.modules.rnn import GRU
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
-sys.path.insert(0, "D:\\Documents\\THU\\Cotk\\cotk_seq2seq_exposure_bias")
-
 from utils import (LongTensor, Storage, Tensor, cuda, gumbel_max,
                    gumbel_max_with_mask, zeros)
 from utils.gru_helper import (DecoderRNN, F_GRUCell, SingleAttnGRU,

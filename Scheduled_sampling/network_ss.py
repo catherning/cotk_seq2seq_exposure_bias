@@ -7,7 +7,7 @@ from torch import nn
 from utils import zeros, LongTensor,\
             BaseNetwork, MyGRU, Storage, gumbel_max, flattenSequence, SingleAttnGRU, SequenceBatchNorm
 from baseline.network import Network,GenNetwork
-from scheduled_sampling_helper import SingleAttnScheduledSamplingGRU
+from utils.scheduled_sampling_helper import SingleAttnScheduledSamplingGRU
 
 # pylint: disable=W0221
 class ScheduledSamplingNetwork(Network):

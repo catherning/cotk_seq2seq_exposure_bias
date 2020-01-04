@@ -12,10 +12,10 @@ from utils import Storage, cuda, BaseModel, SummaryHelper, get_mean, storage_to_
 	CheckpointManager, LongTensor
 
 # from network import Network
-from network_pg import NetworkPG
+from Policy_gradient.network_pg import NetworkPG
 
 
-from seq2seq import Seq2seq
+from baseline.seq2seq import Seq2seq
 
 # Nouveau fichier
 # policygradient

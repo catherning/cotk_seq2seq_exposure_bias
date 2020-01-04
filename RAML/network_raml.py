@@ -4,7 +4,7 @@ import torch
 
 from utils import Storage, flattenSequence
 from baseline.network import Network, GenNetwork, EmbeddingLayer, PostEncoder, ConnectLayer
-from raml_helper import raml_loss
+from utils.raml_helper import raml_loss
 
 # pylint: disable=W0221
 
@@ -28,7 +28,7 @@ class RAMLGenNetwork(GenNetwork):
         incoming.gen = gen = Storage()
         self.teacherForcing(inp, gen)
 
-        if self.training and self.args.raml:
+        if self.training:
             incoming.result.word_loss = raml_loss(
                 gen.w, incoming.data.resp[1:], incoming.data.resp_length - 1, incoming.data.rewards_ts, self.lossCE)
         else:

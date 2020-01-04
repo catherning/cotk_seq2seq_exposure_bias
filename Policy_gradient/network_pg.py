@@ -11,7 +11,7 @@ from utils import zeros, LongTensor,\
 from utils import LossRL, cuda
 
 
-from network import Network, GenNetwork
+from baseline.network import Network, GenNetwork
 
 
 #policy gradient

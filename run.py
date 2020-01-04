@@ -3,17 +3,16 @@
 def run(*argv):
     import argparse
     import time
-    import sys
-    sys.path.insert(0, "D:\\Documents\\THU\\Cotk\\cotk_seq2seq_exposure_bias")
-
     from utils import Storage
 
-    parser = argparse.ArgumentParser(description='A seq2seq model with GRU encoder and decoder ans scheduled sampling. Attention, beamsearch,\
-        dropout and batchnorm is supported.')
+    parser = argparse.ArgumentParser(description='A seq2seq model with GRU encoder and decoder. Attention, beamsearch,\
+        dropout and batchnorm is supported. It can train using RAML, Scheduled Sampling or Policy Gradient algorithms.')
     args = Storage()
 
     parser.add_argument('--name', type=str, default=None,
         help='The name of your model, used for tensorboard, etc. Default: runXXXXXX_XXXXXX (initialized by current time)')
+    parser.add_argument('--model', type=str, default="basic",choices=["basic","raml","schedule-sampling","policy-gradient"],
+        help='The type of algorithm. Choices: basic, raml, schedule-sampling, policy-gradient. Default: basic Seq2seq')
     parser.add_argument('--restore', type=str, default=None,
         help='Checkpoints name to load. \
             "NAME_last" for the last checkpoint of model named NAME. "NAME_best" means the best checkpoint. \
@@ -73,16 +72,33 @@ def run(*argv):
     parser.add_argument('--seed', type=int, default=0,
         help='Specify random seed. Default: 0')
 
-    # Scheduled sampling hyperparameter
+    # RAML parameters
+    parser.add_argument('--raml_file', type=str, default='samples_iwslt14.txt',
+                        help='the samples and rewards described in RAML')
+    parser.add_argument('--n_samples', type=int, default=10,
+                        help='number of samples for every target sentence')
+    parser.add_argument('--tau', type=float, default=0.4,
+                        help='the temperature in RAML algorithm')
+
+    # Scheduled sampling parameters
     parser.add_argument('--decay_factor', type=float, default=500.,
         help='The hyperparameter controling the speed of increasing '
                    'the probability of sampling from model. Default: 500.')
+
+    # Policy Gradient parameters
+    parser.add_argument('--epoch_teacherForcing', type=int, default=0,
+        help='How long to run teacherForcing before running policy gradient. Default: 0')
+    parser.add_argument('--nb_sample_training', type=int, default=3,
+        help='How many samples we take for each batch during policy gradient. Default: 3')
+    parser.add_argument('--policy_gradient_reward_mode', type=str, default='mean',
+        help='How the policy gradient is applied. Default: mean')
 
     cargs = parser.parse_args(argv)
 
 
     # Editing following arguments to bypass command line.
     args.name = cargs.name or time.strftime("run%Y%m%d_%H%M%S", time.localtime())
+    args.model = cargs.model
     args.restore = cargs.restore
     args.mode = cargs.mode
     args.dataset = cargs.dataset
@@ -97,6 +113,19 @@ def run(*argv):
     args.debug = cargs.debug
     args.cache = cargs.cache
     args.cuda = not cargs.cpu
+
+    # RAML parameters
+    args.raml_file = cargs.raml_file
+    args.n_samples = cargs.n_samples
+    args.tau = cargs.tau
+
+    # Scheduled sampling parameters
+    args.decay_factor = cargs.decay_factor
+
+    # Policy Gradient parameters
+    args.epoch_teacherForcing = cargs.epoch_teacherForcing # How long to run teacherForcing before running policy gradient
+    args.nb_sample_training   = cargs.nb_sample_training # How many samples we take for each batch during policy gradient
+    args.policy_gradient_reward_mode = cargs.policy_gradient_reward_mode # How many samples we take for each batch during policy gradient
 
     # The following arguments are not controlled by command line.
     args.restore_optimizer = True
@@ -116,7 +145,7 @@ def run(*argv):
     args.batchnorm = cargs.batchnorm
 
     args.lr = cargs.lr
-    args.batch_size = 16 #64
+    args.batch_size = 6*args.n_samples if args.model=="raml" else 16 #64
     args.batch_num_per_gradient = 4
     args.grad_clip = 5
     args.show_sample = [0]  # show which batch when evaluating at tensorboard
@@ -125,8 +154,6 @@ def run(*argv):
     args.checkpoint_max_to_keep = 5
 
     args.seed = cargs.seed
-
-    args.decay_factor = cargs.decay_factor
 
     import random
     random.seed(cargs.seed)

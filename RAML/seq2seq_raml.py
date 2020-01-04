@@ -9,7 +9,7 @@ import tqdm
 from torch import nn, optim
 
 from baseline.seq2seq import Seq2seq
-from network import RAMLNetwork
+from .network_raml import RAMLNetwork
 from utils import (BaseModel, CheckpointManager, LongTensor, Storage,
                    SummaryHelper, cuda, get_mean, storage_to_list)
 
@@ -32,7 +32,7 @@ class Seq2seqRAML(Seq2seq):
             # XXX: might not work cos for now, 2 dm, if raml, then might always get sth, so data never none ?
             print(f"data batch is none during {key}")
             if restart:
-                if key == "train" and self.args.raml:
+                if key == "train":
                     dm.restart(key, self.args.batch_size // self.args.n_samples)
                 else:
                     dm.restart(key)
@@ -53,10 +53,7 @@ class Seq2seqRAML(Seq2seq):
             self.now_epoch += 1
             self.updateOtherWeights()
 
-            if self.args.raml:
-                dm.restart('train', args.batch_size // args.n_samples)
-            else:
-                dm.restart('train', args.batch_size)
+            dm.restart('train', args.batch_size // args.n_samples)
             self.net.train()
             self.train(args.batch_per_epoch)
 
