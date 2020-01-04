@@ -8,7 +8,6 @@ from cotk.wordvector import WordVector, Glove
 
 from utils import debug, try_cache, cuda_init, Storage
 
-
 # Basic Seq2seq
 from baseline.seq2seq import Seq2seq
 
@@ -21,6 +20,7 @@ from Scheduled_sampling.seq2seq_scheduled_sampling import Seq2seqSS
 
 # Policy Gradient
 from Policy_gradient.seq2seq_pg import Seq2seqPG
+
 
 def main(args, load_exclude_set, restoreCallback):
     logging.basicConfig(

@@ -11,7 +11,7 @@ def run(*argv):
 
     parser.add_argument('--name', type=str, default=None,
         help='The name of your model, used for tensorboard, etc. Default: runXXXXXX_XXXXXX (initialized by current time)')
-    parser.add_argument('--model', type=str, default="basic",choices=["basic","raml","schedule-sampling","policy-gradient"],
+    parser.add_argument('--model', type=str, default="basic",choices=["basic","raml","scheduled-sampling","policy-gradient"],
         help='The type of algorithm. Choices: basic, raml, schedule-sampling, policy-gradient. Default: basic Seq2seq')
     parser.add_argument('--restore', type=str, default=None,
         help='Checkpoints name to load. \
