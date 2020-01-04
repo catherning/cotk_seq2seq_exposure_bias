@@ -72,6 +72,8 @@ def run(*argv):
         help='Use cache for speeding up load data and wordvec. (It may cause problems when you switch dataset.)')
     parser.add_argument('--seed', type=int, default=0,
         help='Specify random seed. Default: 0')
+
+    # Scheduled sampling hyperparameter
     parser.add_argument('--decay_factor', type=float, default=500.,
         help='The hyperparameter controling the speed of increasing '
                    'the probability of sampling from model. Default: 500.')

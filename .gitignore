@@ -127,3 +127,4 @@ run_with_dl_files.bat
 tensorboard/
 model/
 output/
+result.json
