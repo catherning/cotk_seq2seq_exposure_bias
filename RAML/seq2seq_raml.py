@@ -8,7 +8,7 @@ import torch
 import tqdm
 from torch import nn, optim
 
-from baselines.cotk_seq2seq_code.seq2seq import Seq2seq
+from baseline.seq2seq import Seq2seq
 from network import RAMLNetwork
 from utils import (BaseModel, CheckpointManager, LongTensor, Storage,
                    SummaryHelper, cuda, get_mean, storage_to_list)

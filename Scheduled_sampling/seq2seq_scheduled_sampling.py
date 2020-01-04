@@ -8,9 +8,9 @@ import torch
 import tqdm
 from torch import nn, optim
 
-from baselines.cotk_seq2seq_code.seq2seq import Seq2seq
+from baseline.seq2seq import Seq2seq
 from network import ScheduledSamplingNetwork
-from Scheduled_sampling.scheduled_sampling_helper import inverse_sigmoid
+from scheduled_sampling_helper import inverse_sigmoid_decay,linear_decay,exponential_decay
 from utils import (BaseModel, CheckpointManager, LongTensor, Storage,
                    SummaryHelper, cuda, get_mean, storage_to_list)
 
@@ -38,7 +38,7 @@ class ScheduledSamplingSeq2seq(Seq2seq):
             incoming = self.get_next_batch(dm, datakey)
             incoming.args = Storage()
             incoming.args.sampling_proba = 1. - \
-                inverse_sigmoid(args.decay_factor, total_step_counter)
+                inverse_sigmoid_decay(args.decay_factor, total_step_counter)
 
             if (i+1) % args.batch_num_per_gradient == 0:
                 self.zero_grad()
@@ -73,7 +73,7 @@ class ScheduledSamplingSeq2seq(Seq2seq):
             total_step_counter = self.train(
                 args.batch_per_epoch, total_step_counter)
             cur_sampling_proba = 1. - \
-                inverse_sigmoid(args.decay_factor, total_step_counter)
+                inverse_sigmoid_decay(args.decay_factor, total_step_counter)
 
             self.net.eval()
             devloss_detail = self.evaluate("dev", cur_sampling_proba)
