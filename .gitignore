@@ -128,3 +128,4 @@ tensorboard/
 model/
 output/
 result.json
+requirements.txt

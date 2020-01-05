@@ -86,8 +86,8 @@ def run(*argv):
                    'the probability of sampling from model. Default: 500.')
 
     # Policy Gradient parameters
-    parser.add_argument('--epoch_teacherForcing', type=int, default=0,
-        help='How long to run teacherForcing before running policy gradient. Default: 0')
+    parser.add_argument('--epoch_teacherForcing', type=int, default=1,
+        help='How long to run teacherForcing before running policy gradient. Default: 1')
     parser.add_argument('--nb_sample_training', type=int, default=3,
         help='How many samples we take for each batch during policy gradient. Default: 3')
     parser.add_argument('--policy_gradient_reward_mode', type=str, default='mean',
@@ -145,7 +145,7 @@ def run(*argv):
     args.batchnorm = cargs.batchnorm
 
     args.lr = cargs.lr
-    args.batch_size = 6*args.n_samples if args.model=="raml" else 16 #64
+    args.batch_size = 1*args.n_samples if args.model=="raml" else 2#16 #64
     args.batch_num_per_gradient = 4
     args.grad_clip = 5
     args.show_sample = [0]  # show which batch when evaluating at tensorboard
