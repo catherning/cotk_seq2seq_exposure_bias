@@ -30,7 +30,7 @@ class Seq2seqRAML(Seq2seq):
         data = dm.get_next_batch(key)
         if data is None:
             # XXX: might not work cos for now, 2 dm, if raml, then might always get sth, so data never none ?
-            print(f"data batch is none during {key}")
+            print("data batch is none during {}".format(key))
             if restart:
                 if key == "train":
                     dm.restart(key, self.args.batch_size // self.args.n_samples)
