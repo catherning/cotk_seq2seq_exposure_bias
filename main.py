@@ -33,7 +33,7 @@ def main(args, load_exclude_set, restoreCallback):
         debug()
     logging.info(json.dumps(args, indent=2))
 
-    cuda_init(0, args.cuda)
+    cuda_init(args.device, args.cuda)
 
     volatile = Storage()
     volatile.load_exclude_set = load_exclude_set

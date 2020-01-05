@@ -65,6 +65,8 @@ def run(*argv):
         help='Checkpoints directory for cache. Default: ./cache')
     parser.add_argument('--cpu', action="store_true",
         help='Use cpu.')
+    parser.add_argument('--device', type=int, default=0,
+        help='Use cpu.')
     parser.add_argument('--debug', action='store_true',
         help='Enter debug mode (using ptvsd).')
     parser.add_argument('--cache', action='store_true',
