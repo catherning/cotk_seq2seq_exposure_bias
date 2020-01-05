@@ -115,6 +115,7 @@ def run(*argv):
     args.debug = cargs.debug
     args.cache = cargs.cache
     args.cuda = not cargs.cpu
+    args.device = cargs.device
 
     # RAML parameters
     args.raml_file = cargs.raml_file
