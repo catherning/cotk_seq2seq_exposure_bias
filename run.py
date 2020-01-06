@@ -88,9 +88,9 @@ def run(*argv):
                    'the probability of sampling from model. Default: 500.')
 
     # Policy Gradient parameters
-    parser.add_argument('--epoch_teacherForcing', type=int, default=1,
+    parser.add_argument('--epoch_teacherForcing', type=int, default=10,
         help='How long to run teacherForcing before running policy gradient. Default: 1')
-    parser.add_argument('--nb_sample_training', type=int, default=3,
+    parser.add_argument('--nb_sample_training', type=int, default=20,
         help='How many samples we take for each batch during policy gradient. Default: 3')
     parser.add_argument('--policy_gradient_reward_mode', type=str, default='mean',
         help='How the policy gradient is applied. Default: mean')
