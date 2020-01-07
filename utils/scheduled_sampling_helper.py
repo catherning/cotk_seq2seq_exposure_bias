@@ -117,6 +117,8 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
                 w = torch.argmax(w_onehot, dim=1) + start_id
                 next_emb = torch.sum(torch.unsqueeze(
                     w_onehot, -1) * inp.embLayer.weight[start_id:], 1)
+            else:
+                raise AttributeError("The given mode {} is not recognized.".format(mode))
 
             EOSmet.append(flag)
             flag = flag | (w == inp.dm.eos_id).int()
