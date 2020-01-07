@@ -8,5 +8,4 @@ python run.py \
 --dh_size 175 \
 --droprate 0.2 \
 --device ${1:-0} \
---decode_mode "samplek" \
 --epoch 35
