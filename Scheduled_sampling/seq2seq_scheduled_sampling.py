@@ -54,6 +54,7 @@ class Seq2seqSS(Seq2seq):
             if (i+1) % args.batch_num_per_gradient == 0:
                 nn.utils.clip_grad_norm_(self.net.parameters(), args.grad_clip)
                 self.optimizer.step()
+                print(incoming.temp_gen_words)
 
             total_step_counter += 1
 

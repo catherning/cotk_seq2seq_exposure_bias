@@ -55,13 +55,14 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
         length = inp.resp_length - 1
         first_time = True
 
+        temp_gen_words = []
+
         for i in range(inp.max_sent_length):
             proba = random()
 
             # Sampling
             if proba < inp.sampling_proba:
                 now = next_emb
-                first_time = False
                 if input_callback:
                     now = input_callback(now)
 
@@ -75,15 +76,15 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
                 # take min with shape of embed because embedding doesn't have shape max_sent_length, we didn't pad it
                 try:
                     now = inp.embedding[i]
-                except IndexError:
+                except IndexError as e:
                     # XXX: if only gen pad tok or sth like that, might be because of that ?
                     now = inp.embLayer(LongTensor([inp.dm.pad_id])).repeat(
                         inp.batch_size, 1)
+                    print("IndexError",e)
 
                 # TODO: check, it was done in function above in teacher forcing, so as if done for all steps at once ?
-                if input_callback and first_time:
+                if input_callback:
                     now = input_callback(now)
-                    first_time = False
 
                 if self.gru_input_attn:
                     h_now = self.cell_forward(torch.cat([now, context], last_dim=-1), h_now) \
@@ -99,7 +100,7 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
 
             w = wLinearLayerCallback(torch.cat([h_now, context], dim=-1))
             gen.w_pro.append(w)
-
+            
             if mode == "max":
                 w = torch.argmax(w[:, start_id:], dim=1) + start_id
                 next_emb = inp.embLayer(w)
@@ -117,6 +118,8 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
                 w = torch.argmax(w_onehot, dim=1) + start_id
                 next_emb = torch.sum(torch.unsqueeze(
                     w_onehot, -1) * inp.embLayer.weight[start_id:], 1)
+            
+            temp_gen_words.append(w)
 
             EOSmet.append(flag)
             flag = flag | (w == inp.dm.eos_id).int()
@@ -130,7 +133,7 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
         gen.w_pro = torch.stack(gen.w_pro, dim=0)
         gen.length = torch.sum(EOSmet, 0).detach().cpu().numpy()
 
-        return gen
+        return gen,temp_gen_words
 
     def init_forward_all(self, batch_size, post, post_length, h_init=None):
         if h_init is None:
