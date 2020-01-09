@@ -36,10 +36,10 @@ class ScheduledSamplingGenNetwork(GenNetwork):
             return w
 
         # for now, will NOT accept beam mode
-        new_gen,temp_gen_words = self.GRULayer.forward(inp, wLinearLayerCallback, mode=self.args.decode_mode, input_callback=input_callback, h_init=inp.init_h)
+        new_gen = self.GRULayer.forward(inp, wLinearLayerCallback, mode=self.args.decode_mode, input_callback=input_callback, h_init=inp.init_h)
         gen.length = new_gen.length
         gen.w_pro = new_gen.w_pro
-        gen.temp_gen_words = temp_gen_words
+
 
     def forward(self, incoming):
         # TODO: call this function
@@ -59,12 +59,7 @@ class ScheduledSamplingGenNetwork(GenNetwork):
         inp.batch_size = incoming.data.batch_size
 
         self.scheduledTeacherForcing(inp, gen)
-
-        incoming.temp_gen_words = gen.temp_gen_words
-    
-        # else:
-        #     self.teacherForcing(inp, gen)
-
+  
         w_o_f = flattenSequence(gen.w_pro, incoming.data.resp_length-1)
         data_f = flattenSequence(incoming.data.resp[1:], incoming.data.resp_length-1)
         incoming.result.word_loss = self.lossCE(w_o_f, data_f)

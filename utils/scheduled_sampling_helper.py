@@ -55,8 +55,6 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
         length = inp.resp_length - 1
         first_time = True
 
-        temp_gen_words = []
-
         for i in range(inp.max_sent_length):
             proba = random()
 
@@ -122,8 +120,6 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
                     w_onehot, -1) * inp.embLayer.weight[start_id:], 1)
             else:
                 raise AttributeError("The given mode {} is not recognized.".format(mode))
-            
-            temp_gen_words.append((w[0].item()))
 
             EOSmet.append(flag)
             flag = flag | (w == inp.dm.eos_id).int()
@@ -137,7 +133,7 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
         gen.w_pro = torch.stack(gen.w_pro, dim=0)
         gen.length = torch.sum(EOSmet, 0).detach().cpu().numpy()
 
-        return gen,temp_gen_words
+        return gen
 
     def init_forward_all(self, batch_size, post, post_length, h_init=None):
         if h_init is None:
