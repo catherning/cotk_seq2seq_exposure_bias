@@ -89,9 +89,9 @@ def run(*argv):
 
     # Policy Gradient parameters
     parser.add_argument('--epoch_teacherForcing', type=int, default=10,
-        help='How long to run teacherForcing before running policy gradient. Default: 1')
+        help='How long to run teacherForcing before running policy gradient. Default: 10')
     parser.add_argument('--nb_sample_training', type=int, default=20,
-        help='How many samples we take for each batch during policy gradient. Default: 3')
+        help='How many samples we take for each batch during policy gradient. Default: 20')
     parser.add_argument('--policy_gradient_reward_mode', type=str, default='mean',
         help='How the policy gradient is applied. Default: mean')
 
