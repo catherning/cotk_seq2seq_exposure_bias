@@ -77,6 +77,8 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
                 try:
                     now = inp.embedding[i]
                 except IndexError as e:
+                    break
+
                     # XXX: if only gen pad tok or sth like that, might be because of that ?
                     now = inp.embLayer(LongTensor([inp.dm.pad_id])).repeat(
                         inp.batch_size, 1)
@@ -121,7 +123,7 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
             else:
                 raise AttributeError("The given mode {} is not recognized.".format(mode))
             
-            temp_gen_words.append(w)
+            temp_gen_words.append((w[0].item()))
 
             EOSmet.append(flag)
             flag = flag | (w == inp.dm.eos_id).int()

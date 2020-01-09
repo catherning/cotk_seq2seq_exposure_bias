@@ -148,7 +148,7 @@ def run(*argv):
     args.batchnorm = cargs.batchnorm
 
     args.lr = cargs.lr
-    args.batch_size = 1*args.n_samples if args.model=="raml" else 2#16 #64
+    args.batch_size = 1*args.n_samples if args.model=="raml" else 2 #64
     args.batch_num_per_gradient = 4
     args.grad_clip = 5
     args.show_sample = [0]  # show which batch when evaluating at tensorboard
