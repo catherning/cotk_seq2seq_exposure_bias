@@ -41,7 +41,8 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
 
         nextStep, h_now, context = self.init_forward_all(
             inp.batch_size, inp.post, inp.post_length, h_init=inp.get("init_h", None))
-
+        
+        seqlen = inp.embedding.shape[0]
         start_id = inp.dm.go_id if no_unk else 0
         first_emb = inp.embLayer(LongTensor(
             [inp.dm.go_id])).repeat(inp.batch_size, 1)
@@ -52,9 +53,11 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
         flag = zeros(inp.batch_size).int()
         EOSmet = []
         length = inp.resp_length - 1
-        first_time = True
 
-        for i in range(inp.max_sent_length):
+        if input_callback:
+            inp.embedding = input_callback(inp.embedding)
+
+        for i in range(seqlen):
             proba = random()
 
             # Sampling
@@ -73,12 +76,8 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
                 # take min with shape of embed because embedding doesn't have shape max_sent_length, we didn't pad it
                 try:
                     now = inp.embedding[i]
-                except IndexError as e:
+                except IndexError:
                     break
-
-                # TODO: check, it was done in function above in teacher forcing, so as if done for all steps at once ?
-                if input_callback:
-                    now = input_callback(now)
 
                 if self.gru_input_attn:
                     h_now = self.cell_forward(torch.cat([now, context], last_dim=-1), h_now) \
@@ -122,7 +121,7 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
             # The second condition forces the generation (of pad/eos tokens ?) until the generated sentences have a length above resp length
             # In order to be able to calculate the loss
             # We know the following tokens are pad/eos, but we wouldn't know the proba
-            if torch.sum(flag).detach().cpu().numpy() == inp.batch_size and i > inp.embedding.shape[0]:
+            if torch.sum(flag).detach().cpu().numpy() == inp.batch_size:# and i > inp.embedding.shape[0]:
                 break
 
         EOSmet = 1-torch.stack(EOSmet)
