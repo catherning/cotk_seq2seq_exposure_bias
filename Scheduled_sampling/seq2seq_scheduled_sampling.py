@@ -37,7 +37,7 @@ class Seq2seqSS(Seq2seq):
             self.now_batch += 1
             incoming = self.get_next_batch(dm, datakey)
             incoming.args = Storage()
-           incoming.args.sampling_proba = 1. - \
+            incoming.args.sampling_proba = 1. - \
                inverse_sigmoid_decay(args.decay_factor, total_step_counter) 
 
             if (i+1) % args.batch_num_per_gradient == 0:

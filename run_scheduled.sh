@@ -10,7 +10,5 @@ python run.py \
 --droprate 0.2 \
 --device ${1:-0} \
 --decode_mode "samplek" \
---epoch 15 \
---mode "test" \
---restore "./model/ss_samplek_best.model" \
+--epoch 20 \
 --batch_per_epoch 500
