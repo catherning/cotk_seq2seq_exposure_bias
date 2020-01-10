@@ -121,7 +121,7 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
             # The second condition forces the generation (of pad/eos tokens ?) until the generated sentences have a length above resp length
             # In order to be able to calculate the loss
             # We know the following tokens are pad/eos, but we wouldn't know the proba
-            if torch.sum(flag).detach().cpu().numpy() == inp.batch_size:# and i > inp.embedding.shape[0]:
+            if torch.sum(flag).detach().cpu().numpy() == inp.batch_size and i > inp.embedding.shape[0]:
                 break
 
         EOSmet = 1-torch.stack(EOSmet)
