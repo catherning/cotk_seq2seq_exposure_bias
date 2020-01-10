@@ -38,7 +38,6 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
 
         output: w_o emb length"""
         # TODO: clean code, adapt nextStep function so that it can be used in teacher forcing?
-        # simplifies the sampling mode conditions (repetitive code in sampling & teacher forcing modes)
 
         nextStep, h_now, context = self.init_forward_all(
             inp.batch_size, inp.post, inp.post_length, h_init=inp.get("init_h", None))
@@ -77,11 +76,6 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
                 except IndexError as e:
                     break
 
-                    # XXX: if only gen pad tok or sth like that, might be because of that ?
-                    now = inp.embLayer(LongTensor([inp.dm.pad_id])).repeat(
-                        inp.batch_size, 1)
-                    print("IndexError",e)
-
                 # TODO: check, it was done in function above in teacher forcing, so as if done for all steps at once ?
                 if input_callback:
                     now = input_callback(now)
@@ -97,8 +91,10 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
                 attn_weight = maskedSoftmax(
                     (query.unsqueeze(0) * inp.post).sum(-1), inp.post_length)
                 context = (attn_weight.unsqueeze(-1) * inp.post).sum(0)
+                
+                gru_h = torch.cat([h_now, context], dim=-1)
 
-            w = wLinearLayerCallback(torch.cat([h_now, context], dim=-1))
+            w = wLinearLayerCallback(gru_h)
             gen.w_pro.append(w)
             
             if mode == "max":
@@ -158,6 +154,6 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
                 (query.unsqueeze(0) * post).sum(-1), post_length)
             context = (attn_weight.unsqueeze(-1) * post).sum(0)
 
-            return torch.cat([h_now, context], dim=-1), attn_weight
+            return torch.cat([h_now, context], dim=-1), attn_weight 
 
         return nextStep, h_now, context
