@@ -37,12 +37,10 @@ class ScheduledSamplingGenNetwork(GenNetwork):
 
         # for now, will NOT accept beam mode
         new_gen = self.GRULayer.forward(inp, wLinearLayerCallback, mode=self.args.decode_mode, input_callback=input_callback, h_init=inp.init_h)
-        gen.length = new_gen.length
         gen.w_pro = new_gen.w_pro
 
 
     def forward(self, incoming):
-        # TODO: call this function
         inp = Storage()
         inp.embedding = incoming.resp.embedding
         inp.post = incoming.hidden.h
@@ -51,7 +49,6 @@ class ScheduledSamplingGenNetwork(GenNetwork):
         incoming.gen = gen = Storage()
         inp.init_h = incoming.conn.init_h
         
-        # if self.training:
         inp.embLayer = incoming.resp.embLayer
         inp.max_sent_length = self.args.max_sent_length
         inp.sampling_proba = incoming.args.sampling_proba
