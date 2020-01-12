@@ -1,11 +1,12 @@
 python run.py \
 --model "policy-gradient" \
 --dataset "OpenSubtitles" \
---dataid "..~/cotk_data/iwslt14" \
+--dataid "../cotk_data/iwslt14" \
 --wvid "../cotk_data/glove.6B.300d.txt" \
 --lr 0.0005 \
 --eh_size 175 \
 --dh_size 175 \
 --droprate 0.2 \
 --device ${1:-0} \
---epoch 35
+--epoch 35 \
+--decode_mode "samplek" \

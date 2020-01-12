@@ -37,8 +37,6 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
         wLinearLayerCallback(gru_h): input gru_h and give a probability distribution on vocablist
 
         output: w_o emb length"""
-        # TODO: clean code, adapt nextStep function so that it can be used in teacher forcing?
-
         nextStep, h_now, context = self.init_forward_all(
             inp.batch_size, inp.post, inp.post_length, h_init=inp.get("init_h", None))
         
@@ -66,14 +64,12 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
                 if input_callback:
                     now = input_callback(now)
 
-                # TODO: check, might have to give now[i], like in teacher forcing where we give incoming[i]
                 gru_h = nextStep(now, flag)
                 if isinstance(gru_h, tuple):
                     gru_h = gru_h[0]
 
             # Teacher forcing at this step
             else:
-                # take min with shape of embed because embedding doesn't have shape max_sent_length, we didn't pad it
                 try:
                     now = inp.embedding[i]
                 except IndexError:
@@ -96,6 +92,7 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
             w = wLinearLayerCallback(gru_h)
             gen.w_pro.append(w)
             
+            # Decoding 
             if mode == "max":
                 w = torch.argmax(w[:, start_id:], dim=1) + start_id
                 next_emb = inp.embLayer(w)
@@ -119,8 +116,7 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
             EOSmet.append(flag)
             flag = flag | (w == inp.dm.eos_id).int()
             # The second condition forces the generation (of pad/eos tokens ?) until the generated sentences have a length above resp length
-            # In order to be able to calculate the loss
-            # We know the following tokens are pad/eos, but we wouldn't know the proba
+            # In order to be able to calculate the loss. We know the following tokens are pad/eos, but we wouldn't know the proba
             if torch.sum(flag).detach().cpu().numpy() == inp.batch_size and i > inp.embedding.shape[0]:
                 break
 
