@@ -191,6 +191,7 @@ We did the following experiments on `IWSLT14`.
 | Basic               | Samplek         | 70.627 | 69.370 |
 | RAML                | Beam            | 32.344 | 32.733 |
 | RAML                | Samplek         | 75.350 | 74.276 |
-| Scheduled Sampling  | Samplek         | | |
+| Scheduled Sampling  | Samplek         | 328.77 | 317.65 |
+| Scheduled Sampling  | Max             | 171.120 | 169.417|
 | Policy Gradient     | Beam            | | |
 | Policy Gradient     | Samplek         | | |
