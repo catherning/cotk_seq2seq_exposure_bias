@@ -92,37 +92,37 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
             w = wLinearLayerCallback(gru_h)
             gen.w_pro.append(w)
             
-            # Decoding 
-            if mode == "max":
-                w = torch.argmax(w[:, start_id:], dim=1) + start_id
-                next_emb = inp.embLayer(w)
-            elif mode == "gumbel" or mode == "sample":
-                w_onehot = gumbel_max(w[:, start_id:])
-                w = torch.argmax(w_onehot, dim=1) + start_id
-                next_emb = torch.sum(torch.unsqueeze(
-                    w_onehot, -1) * inp.embLayer.weight[start_id:], 1)
-            elif mode == "samplek":
-                _, index = w[:, start_id:].topk(
-                    top_k, dim=-1, largest=True, sorted=True)  # batch_size, top_k
-                mask = torch.zeros_like(
-                    w[:, start_id:]).scatter_(-1, index, 1.0)
-                w_onehot = gumbel_max_with_mask(w[:, start_id:], mask)
-                w = torch.argmax(w_onehot, dim=1) + start_id
-                next_emb = torch.sum(torch.unsqueeze(
-                    w_onehot, -1) * inp.embLayer.weight[start_id:], 1)
-            else:
-                raise AttributeError("The given mode {} is not recognized.".format(mode))
+        #     # Decoding 
+        #     if mode == "max":
+        #         w = torch.argmax(w[:, start_id:], dim=1) + start_id
+        #         next_emb = inp.embLayer(w)
+        #     elif mode == "gumbel" or mode == "sample":
+        #         w_onehot = gumbel_max(w[:, start_id:])
+        #         w = torch.argmax(w_onehot, dim=1) + start_id
+        #         next_emb = torch.sum(torch.unsqueeze(
+        #             w_onehot, -1) * inp.embLayer.weight[start_id:], 1)
+        #     elif mode == "samplek":
+        #         _, index = w[:, start_id:].topk(
+        #             top_k, dim=-1, largest=True, sorted=True)  # batch_size, top_k
+        #         mask = torch.zeros_like(
+        #             w[:, start_id:]).scatter_(-1, index, 1.0)
+        #         w_onehot = gumbel_max_with_mask(w[:, start_id:], mask)
+        #         w = torch.argmax(w_onehot, dim=1) + start_id
+        #         next_emb = torch.sum(torch.unsqueeze(
+        #             w_onehot, -1) * inp.embLayer.weight[start_id:], 1)
+        #     else:
+        #         raise AttributeError("The given mode {} is not recognized.".format(mode))
 
-            EOSmet.append(flag)
-            flag = flag | (w == inp.dm.eos_id).int()
-            # The second condition forces the generation (of pad/eos tokens ?) until the generated sentences have a length above resp length
-            # In order to be able to calculate the loss. We know the following tokens are pad/eos, but we wouldn't know the proba
-            if torch.sum(flag).detach().cpu().numpy() == inp.batch_size and i > inp.embedding.shape[0]:
-                break
+        #     EOSmet.append(flag)
+        #     flag = flag | (w == inp.dm.eos_id).int()
+        #     # The second condition forces the generation (of pad/eos tokens ?) until the generated sentences have a length above resp length
+        #     # In order to be able to calculate the loss. We know the following tokens are pad/eos, but we wouldn't know the proba
+        #     if torch.sum(flag).detach().cpu().numpy() == inp.batch_size and i > inp.embedding.shape[0]:
+        #         break
 
-        EOSmet = 1-torch.stack(EOSmet)
+        # EOSmet = 1-torch.stack(EOSmet)
+        # gen.length = torch.sum(EOSmet, 0).detach().cpu().numpy()
         gen.w_pro = torch.stack(gen.w_pro, dim=0)
-        gen.length = torch.sum(EOSmet, 0).detach().cpu().numpy()
 
         return gen
 
