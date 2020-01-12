@@ -1,4 +1,5 @@
 python run.py \
+--name "pg_samplek" \
 --model "policy-gradient" \
 --dataset "OpenSubtitles" \
 --dataid "../cotk_data/iwslt14" \
@@ -10,3 +11,5 @@ python run.py \
 --device ${1:-0} \
 --epoch 35 \
 --decode_mode "samplek" \
+--mode "test" \
+--restore "pg_samplek_best.model"

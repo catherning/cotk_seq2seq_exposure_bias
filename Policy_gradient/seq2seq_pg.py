@@ -2,6 +2,7 @@
 import logging
 import time
 import os
+import codecs
 
 import torch
 from torch import nn, optim
