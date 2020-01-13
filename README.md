@@ -139,41 +139,6 @@ S. Bengio, O. Vinyals, N. Jaitly, and N. Shazeer, “Scheduled sampling for sequ
                             How the policy gradient is applied. Default: mean')
 ```
 
-## TensorBoard Example
-
-Execute ``tensorboard --logdir=./tensorboard``, you will see the plot in tensorboard pages:
-
-![tensorboard_plot_example](./images/tensorboard_plot_example.png)
-
-Following plot are shown in this model:
-
-* gen/loss (``gen`` means training process)
-
-* gen/perplexity (``=exp(gen/word_loss)``)
-
-* gen/word_loss (``=gen/loss`` in this model)
-
-* dev/loss
-* dev/perplexity_avg_on_batch
-* test/loss
-* test/perplexity_avg_on_batch
-
-And text output:
-
-![tensorboard_plot_example](./images/tensorboard_text_example.png)
-
-Following text are shown in this model:
-
-* args
-* dev/show_str%d (``%d`` is according to ``args.show_sample`` in ``run.py``)
-
-## Case Study of Model Results
-
-Execute ``python run.py --mode test --restore best``
-
-The following output will be in `./output/[name]_[dev|test].txt`:
-
-
 ## Preliminary Experiments
 
 Based on the best parameters for the basic Seq2seq model
@@ -181,9 +146,11 @@ Based on the best parameters for the basic Seq2seq model
 - No batchnorm
 - Learning rate 0.0005
 - Droprate 0.2
-- 
+
 with a dev perplexity of 88.688 and a test perplexity of 93.421, we run the other Seq2seq models with the same parameters to compare the performance.
+
 We did the following experiments on `IWSLT14`.
+We train during 35 epochs, unless precised.
 
 | Model               | Decode mode     | Dev perplexity  |  Test perplexity  |
 | :----------------:  | :------------:  | :-------------: | :--------------:  |

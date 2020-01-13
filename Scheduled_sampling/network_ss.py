@@ -24,8 +24,6 @@ class ScheduledSamplingGenNetwork(GenNetwork):
 
         self.GRULayer = SingleAttnScheduledSamplingGRU(args.embedding_size, args.dh_size, args.eh_size * 2, initpara=False)
 
-    # TODO: create sampling proba def or attribute that get updated, so that i don't recreate test & eval functions in seq2seq ?
-
     def scheduledTeacherForcing(self, inp, gen):
         def input_callback(now):
             return self.drop(now)
@@ -35,7 +33,6 @@ class ScheduledSamplingGenNetwork(GenNetwork):
             w = self.wLinearLayer(gru_h)
             return w
 
-        # for now, will NOT accept beam mode
         new_gen = self.GRULayer.forward(inp, wLinearLayerCallback, mode=self.args.decode_mode, input_callback=input_callback, h_init=inp.init_h)
         gen.w_pro = new_gen.w_pro
 

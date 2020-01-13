@@ -16,7 +16,7 @@ from utils import (LongTensor, Storage, Tensor, cuda, gumbel_max,
 from utils.gru_helper import (DecoderRNN, F_GRUCell, SingleAttnGRU,
                               generateMask, maskedSoftmax)
 
-# TODO: create a class and another function to choose which decay ?
+
 def inverse_sigmoid_decay(decay_factor, i):
     return decay_factor / (
         decay_factor + math.exp(i / decay_factor))
@@ -63,6 +63,7 @@ class SingleAttnScheduledSamplingGRU(SingleAttnGRU):
                 now = next_emb
                 if input_callback:
                     now = input_callback(now)
+            # Teacher Forcing
             else:
                 now = inp.embedding[i]
 
