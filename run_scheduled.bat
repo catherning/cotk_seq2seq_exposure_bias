@@ -1,6 +1,6 @@
 python run.py ^
 --model "scheduled-sampling" ^
---name "ss_simple_samplek" ^
+--name "ss_simple_samplek_ep9" ^
 --dataset "OpenSubtitles" ^
 --dataid "../cotk_data/iwslt14" ^
 --wvid "../cotk_data/glove.6B.300d.txt" ^
@@ -10,3 +10,5 @@ python run.py ^
 --droprate 0.2 ^
 --decode_mode "samplek" ^
 --epoch 20 ^
+--mode "test" ^
+--restore "ss_simple_samplek_best_ep9.model"
