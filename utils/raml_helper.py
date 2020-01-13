@@ -10,7 +10,6 @@ from torch import nn
 from utils import Storage
 
 def raml_loss(pred, target, sent_size, training_rewards, loss_fn):
-    # TODO: check in code and paper, teacher forcing, loss on the golden target or on targets with lower reward, to make model train
     training_rewards = torch.Tensor(training_rewards)
     sent_loss = torch.zeros(target.size()[1])
     for i in range(target.size()[1]):

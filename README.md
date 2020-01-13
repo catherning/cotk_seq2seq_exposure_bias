@@ -139,41 +139,6 @@ S. Bengio, O. Vinyals, N. Jaitly, and N. Shazeer, “Scheduled sampling for sequ
                             How the policy gradient is applied. Default: mean')
 ```
 
-## TensorBoard Example
-
-Execute ``tensorboard --logdir=./tensorboard``, you will see the plot in tensorboard pages:
-
-![tensorboard_plot_example](./images/tensorboard_plot_example.png)
-
-Following plot are shown in this model:
-
-* gen/loss (``gen`` means training process)
-
-* gen/perplexity (``=exp(gen/word_loss)``)
-
-* gen/word_loss (``=gen/loss`` in this model)
-
-* dev/loss
-* dev/perplexity_avg_on_batch
-* test/loss
-* test/perplexity_avg_on_batch
-
-And text output:
-
-![tensorboard_plot_example](./images/tensorboard_text_example.png)
-
-Following text are shown in this model:
-
-* args
-* dev/show_str%d (``%d`` is according to ``args.show_sample`` in ``run.py``)
-
-## Case Study of Model Results
-
-Execute ``python run.py --mode test --restore best``
-
-The following output will be in `./output/[name]_[dev|test].txt`:
-
-
 ## Preliminary Experiments
 
 Based on the best parameters for the basic Seq2seq model
@@ -181,9 +146,11 @@ Based on the best parameters for the basic Seq2seq model
 - No batchnorm
 - Learning rate 0.0005
 - Droprate 0.2
-- 
+
 with a dev perplexity of 88.688 and a test perplexity of 93.421, we run the other Seq2seq models with the same parameters to compare the performance.
+
 We did the following experiments on `IWSLT14`.
+We train during 35 epochs, unless precised.
 
 | Model               | Decode mode     | Dev perplexity  |  Test perplexity  |
 | :----------------:  | :------------:  | :-------------: | :--------------:  |
@@ -191,7 +158,7 @@ We did the following experiments on `IWSLT14`.
 | Basic               | Samplek         | 70.627 | 69.370 |
 | RAML                | Beam            | 32.344 | 32.733 |
 | RAML                | Samplek         | 75.350 | 74.276 |
-| Scheduled Sampling  | Samplek (10 epochs)        | 328.77 | 317.65 |
-| Scheduled Sampling  | Max (10 epochs) | 153.723 | 154.406 |
-| Policy Gradient     | Beam            | 40.552 | 40.670|
-| Policy Gradient     | Samplek         | 40.552| 40.670 |
+| Scheduled Sampling (6 epochs) | Samplek         | 198.28 | 195.204 |
+| Scheduled Sampling (10 epochs) | Max  | 153.723 | 154.406 |
+| Policy Gradient     | Beam            | 40.552 | 40.670 |
+| Policy Gradient     | Samplek         | 40.552 | 40.670 |
