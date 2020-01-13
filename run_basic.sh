@@ -1,5 +1,5 @@
 python run.py \
---name "basic_test" \
+--name "basic_max_10" \
 --model "basic" \
 --dataset "OpenSubtitles" \
 --dataid "../cotk_data/iwslt14" \
@@ -9,4 +9,5 @@ python run.py \
 --dh_size 175 \
 --droprate 0.2 \
 --device ${1:-0} \
---epoch 35
+--epoch 10 \
+--decode_mode "max"
